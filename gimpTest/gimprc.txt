@@ -1,0 +1,1 @@
+(script-fu-path "script")

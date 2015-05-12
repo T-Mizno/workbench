@@ -1,0 +1,1 @@
+>C:\local\GIMP-2.0\bin\gimp-2.6.exe -i -f -g gimprc.txt --batch "(resize \"test.xcf\" \"test_gray.jpg\" ) " --batch "(gimp-quit 0)"

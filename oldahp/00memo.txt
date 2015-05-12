@@ -1,0 +1,56 @@
+;
+; for scala
+;
+(add-to-list 'load-path "~/.emacs.d/scala-emacs-mode")
+(require 'scala-mode-auto)
+(add-to-list 'auto-mode-alist '("\\.scala$" . scala-mode))
+
+
+
+  // load from file
+  def loadFromFile(filename:String):DominantAHP = {
+    import scala.io.Source
+
+    val s = Source.fromFile(filename)
+    try {
+      val lines = s.getLines.toList
+      println(lines)
+      val oM = lines(0).toInt
+      val oN = lines(1).toInt
+      val offset = 2
+      val oAltNames = new Array[String](oM)
+      for(i <- 0 until oM) oAltNames(i) = lines(offset+i)
+      offset = offset + oM
+      val oCNames = new Array[String](oN)
+      for(j <- 0 until oN) oCNames(j) = lines(offset+j)
+      offset = offset + oN
+
+      val oPcmMatA = new Array[Matrix](oN)
+      offset = 2 + oM + oN -1
+      for(cri <- 0 until oN) {
+	oPcmMatA(cri) = new Matrix(oM, oM)
+	for(i <- 0 until oM; j <- 0 until oM) {
+	  oPcmMatA(cri).set(i,j) = lines(offset + i*oM + j).toDouble
+	}
+	offset = offset + oM * oM
+      }
+      val sizeBs = lines(offset).toInt
+      offset = offset + 1
+      val obs:scala.collection.mutable.Map[Int, Matrix] = scala.collection.mutable.Map.empty
+      for(alt <- 0 until sizeBs) {
+	val key = lines(offset).toInt
+	offset = offset + 1
+	val oMat = new Matrix(oN, oN)
+	for(i <- 0 until oN; j <- 0 until oN) {
+	  oMat.set(i,j) = lines(offset + i*oN + j).toDouble
+	}
+	obs += key -> oMat	
+      }
+      val out = new DominantAHP(lines(0).toInt, lines(1).toInt)
+      out
+    }
+    finally {
+      s.close
+    }
+  }
+

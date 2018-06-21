@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+<title>Test: Visualize PCM</title>
+<script type="text/javascript" src="./../extlibs/three.js"></script>
+<script type="text/javascript" src="./../extlibs/CanvasRenderer.js"></script>
+<script type="text/javascript" src="./../extlibs/Projector.js"></script>
+<script type="text/javascript" src="./../extlibs/myzlinear.js"></script>
+
+<style>
+body {
+    /* set margin to 0 and overflow to hidden, to go fullscreen */
+    margin: 0;
+    overflow: hidden;
+}
+</style>
+</head>
+<body>
+
+<TABLE>
+    <TR>
+        <TD>
+            <div id="display-loops"></div>
+        </TD>
+        <TD>
+            <div id="pcm-info"></div>
+        </TD>
+</TR>
+
+</TABLE>
+
+<script type="text/javascript">
+
+window.onload = init;
+
+var scene;
+var camera;
+var cameras;
+var cameraID;
+
+var renderer;
+var renderers;
+var rendererID;
+
+var raycaster = new THREE.Raycaster();
+var mouse = new THREE.Vector2();
+var touch = new THREE.Vector2();
+
+var preX, X;
+var preZ, Z;
+var remarkedObject = null;
+var remarkedLoop = 0;
+var drugMode = false;
+var cameraMode = false;
+
+var onShift = false;
+const _CameraR = 90;
+
+
+var _Alt;
+var _Vs;
+var _Hundle;
+
+var _unitLength  = 10;  // length of each edge of loop.
+
+var frameLength = 500;
+
+
+const _Colors = [
+    0x000000
+    ,0xffff00
+    ,0x0000ff
+    ,0xff00ff
+    ,0x555555
+]
+
+var _N = 4;
+var _weights;
+var _PCM;
+
+
+function init() {
+
+    frameLength = Math.min(window.innerWidth,  window.innerHeight);
+    _unitLength = frameLength/80;
+
+    scene = new THREE.Scene();
+
+    cameras = [new THREE.OrthographicCamera(frameLength/-30, frameLength/30,  frameLength/30, frameLength/-30, 10, 100),  new THREE.PerspectiveCamera(70, frameLength/frameLength, 10, 1000)];
+    cameraID = 0;
+    camera = cameras[cameraID];
+
+    camera.position.set(_CameraR/1.73205, _CameraR/1.73205, _CameraR/1.73205);
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+    renderers = [new THREE.WebGLRenderer(), new THREE.CanvasRenderer()];
+    for(var i=0; i<renderers.length; i++) {
+        renderers[i].setClearColor(new THREE.Color(0xffffff));
+        renderers[i].setSize(frameLength, frameLength);
+    }
+    rendererID = 1;
+    renderer = renderers[rendererID];
+
+    window.addEventListener( 'mousemove', onMouseMove, false );
+    window.addEventListener( 'mousedown', onMouseDown, false);
+    window.addEventListener( 'mouseup', onMouseUp, false);
+
+    function onMouseMove( event ) {
+        preX = X;
+        preZ = Z;
+        X = event.clientX;
+        Z = event.clientY;
+        dx = 3 * (X - preX)/frameLength;
+        dz = 3 * (Z - preZ)/frameLength;
+
+        if(drugMode) {
+            _y = remarkedObject.position.y + 15*dx - 15*dz;
+            if(_y >= 0) remarkedObject.position.y = _y;
+            else remarkedObject.position.y = 0.0;
+            _weights.set(_Alt[remarkedLoop], 0,  y2w(remarkedObject.position.y));
+            normalize(_weights);
+            updateYs();
+
+            requestAnimationFrame(render);
+            return;
+        }
+
+        if(cameraMode) {
+            if(onShift) {
+                camera.position.x -= 10 * dx;
+                camera.position.y += 10 * dz;
+                camera.position.z -= 10 * dz;
+            }
+            else {
+
+                var thetaX;
+                if(Math.abs(camera.position.x)<0.00001) thetaX = Math.PI/2;
+                else thetaX = Math.atan(Math.abs(camera.position.z)/Math.abs(camera.position.x));
+
+                if((camera.position.x>0) && (camera.position.z < 0)) {thetaX = 2*Math.PI - thetaX;}
+                else if((camera.position.x<0) && (camera.position.z < 0)) {thetaX += Math.PI;}
+                else if((camera.position.x<0) && (camera.position.z > 0)) {thetaX = Math.PI - thetaX;}
+
+                var thetaZ;
+                if(Math.abs(camera.position.z)<0.00001) thetaZ = Math.PI/2;
+                else thetaZ = Math.atan(Math.abs(camera.position.y)/Math.abs(camera.position.z));
+
+                if((camera.position.z>0) && (camera.position.y < 0)) {thetaZ = 2*Math.PI - thetaZ; }
+                else if((camera.position.z<0) && (camera.position.y < 0)) {thetaZ += Math.PI; }
+                else if((camera.position.z<0) && (camera.position.y > 0)) {thetaZ = Math.PI - thetaZ;}
+
+                thetaX += dx;
+                thetaZ += dz;
+
+                if(thetaX >= 3*Math.PI/2) thetaX = 3*Math.PI/2;
+                else if(thetaX <= 0) thetaX = 0;
+                if(thetaZ >= 3*Math.PI/8) thetaZ = 3*Math.PI/8;
+                else if(thetaZ <= 0) thetaZ = 0;
+
+                var r;
+                if(Math.abs(dx) > Math.abs(dz)) {
+                    r = Math.sqrt(camera.position.x*camera.position.x +  camera.position.z*camera.position.z);
+                    camera.position.x = r * Math.cos(thetaX);
+                    camera.position.z = r * Math.sin(thetaX);
+                }
+                else {
+                    r = Math.sqrt(camera.position.y*camera.position.y +  camera.position.z*camera.position.z);
+                    camera.position.z = r * Math.cos(thetaZ);
+                    camera.position.y = r * Math.sin(thetaZ);
+                }
+                camera.lookAt(new THREE.Vector3(0,0,0));
+            }
+        }
+
+        // calculate mouse position in normalized device coordinates
+        // (-1 to +1) for both components
+        mouse.x = ( event.clientX / frameLength ) * 2 - 1;
+        mouse.y = - ( event.clientY / frameLength ) * 2 + 1;
+
+        raycaster.setFromCamera( mouse, camera );
+        raycaster.setFromCamera( mouse, camera );
+        // calculate objects intersecting the picking ray var intersects =
+        var intersects = raycaster.intersectObjects( scene.children );
+
+        if(intersects.length > 0) {
+            for(var i = 0; i<scene.children.length; i++) {
+                if((intersects[0].object == scene.children[i]) && (scene.children[i].name == "hundle")) {
+                    setHundleColor(intersects[ 0 ].object, 0x00ffff);
+                    setLoopColor(intersects[ 0 ].object.loop, 0x00ffff);
+
+                    remarkedObject = scene.children[i];
+                    remarkedLoop = scene.children[i].loopID;
+                }
+            }
+        }
+        else {
+            for(var i = 0; i<scene.children.length; i++) {
+                if(scene.children[i].name == "hundle") {
+                    setHundleColor(scene.children[i], altColor(_Alt[scene.children[i].loopID]));
+                    setLoopColor(scene.children[i].loop, altColor(_Alt[scene.children[i].loopID]));
+                }
+            }
+            remarkedObject = null;
+        }
+        requestAnimationFrame(render);
+    }
+
+    function onMouseDown( event ) {
+        preX = event.clientX;
+        X = preX;
+        preZ = event.clientY;
+        Z = preZ;
+        if((remarkedObject != null) && !drugMode) {
+            drugMode = true;
+            cameraMode = false;
+        }
+        if(!drugMode) {
+            cameraMode = true;
+        }
+        requestAnimationFrame(render);
+    }
+
+    function onMouseUp( event ) {
+        if(drugMode) {
+            drugMode = false;
+            remarkedObject = null;
+
+            console.log("Weights:");
+            _weights.stdout();
+        }
+        if(cameraMode)cameraMode = false;
+        requestAnimationFrame(render);
+    }
+
+    window.addEventListener("keyup", function(e){
+        if(e.keyCode == 16) { // Shift key
+            onShift = false;
+        }
+    });
+
+    window.addEventListener("keydown", function(e){
+        //console.log("key :: "+e.keyCode);
+        if(e.keyCode == 16) { // Shift key
+            onShift = true;
+        }
+
+        if(e.keyCode == 67) {//c
+            var oldCamera = camera;
+            cameraID = (cameraID+1) % 2;
+
+            camera = cameras[cameraID];
+            camera.position.set(oldCamera.position.x, oldCamera.position.y, oldCamera.position.z);
+            camera.rotation.x = oldCamera.rotation.x;
+            camera.rotation.y = oldCamera.rotation.y;
+            camera.rotation.z = oldCamera.rotation.z;
+
+            camera.lookAt(new THREE.Vector3(0, 0, 0));
+            requestAnimationFrame(render);
+            return;
+        }
+
+        if(e.keyCode == 84) {//t
+            camera.position.y = Math.sqrt(camera.position.x*camera.position.x + camera.position.y * camera.position.y + camera.position.z * camera.position.z);
+            camera.position.x = 0;
+            camera.position.z = 0;
+            camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+            requestAnimationFrame(render);
+            return;
+        }
+        if(e.keyCode == 83) {//s
+            var _r = camera.position.y = Math.sqrt(camera.position.x*camera.position.x + camera.position.y * camera.position.y + camera.position.z * camera.position.z);
+            camera.position.y = 0;
+            camera.position.x = _r * Math.cos(4/5 * Math.PI);
+            camera.position.z = _r * Math.sin(4/5 * Math.PI);
+            camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+            requestAnimationFrame(render);
+            return;
+        }
+
+        if(e.keyCode == 82) {//r
+            camera.position.set(-_CameraR/1.73205, _CameraR/1.73205, _CameraR/1.73205);
+            scene.scale.x = 1;
+            scene.scale.y = 1;
+            scene.scale.z = 1;
+            camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+            updateYs();
+            requestAnimationFrame(render);
+            return;
+        }
+
+        var scaleDt = 1.2;
+        if(e.keyCode == 73) {//i
+            scene.scale.x *= scaleDt;
+            scene.scale.z *= scaleDt;
+            updateYs();
+            requestAnimationFrame(render);
+            return;
+        }
+        if(e.keyCode == 74) {//j
+            scene.scale.x /= scaleDt;
+            scene.scale.z /= scaleDt;
+            updateYs();
+            requestAnimationFrame(render);
+            return;
+        }
+
+        if(e.keyCode == 71) {//g
+            updateWeightGM();
+            console.log("weights :"); _weights.stdout();
+            updateYs();
+            requestAnimationFrame(render);
+            return;
+        }
+        if(e.keyCode == 69) {//e
+            updateWeightE();
+            console.log("weights :"); _weights.stdout();
+            updateYs();
+            requestAnimationFrame(render);
+            return;
+        }
+
+        for(var k=0; k<_N; k++) {
+            if(e.keyCode == 48+k) {
+                var fromI = k;
+                var toI = (k+1)%_N;
+                var tmp = _Alt[toI];
+                _Alt[toI] = _Alt[fromI];
+                _Alt[fromI] = tmp;
+
+                setHundleColor(_Hundle[toI], altColor(_Alt[toI]));
+                setLoopColor(_Hundle[toI].loop, altColor(_Alt[toI]));
+                setHundleColor(_Hundle[fromI], altColor(_Alt[fromI]));
+                setLoopColor(_Hundle[fromI].loop, altColor(_Alt[fromI]));
+
+                updateYs();
+                requestAnimationFrame(render);
+                return;
+            }
+        }
+
+    }, false);
+
+
+    // load PCM
+    //setExample3();
+    //setExample4();
+    setExample4Consistent();
+
+    console.log("PCM:"); _PCM.stdout();
+    updateWeightGM();
+    console.log("weights:");_weights.stdout();
+
+    _Alt = new Array( _N );  for(var i=0; i< _N; i++) _Alt[i] = i;
+    _Vs = new Array(_N);
+    _Hundle = new Array(_N);
+
+
+    var ambientLight = new THREE.AmbientLight(0xffffff);
+    scene.add(ambientLight);
+
+    document.getElementById("display-loops").appendChild(renderer.domElement);
+
+    scene.add(new THREE.AxesHelper(20));
+    for(var i=0; i<_N; i++) {
+        addHundledLoop("loop", i);
+    }
+    updateYs();
+
+    writePCMInfo();
+
+    function render() {
+        requestAnimationFrame(render);
+        renderer.render(scene, camera)
+    }
+    render();
+}  // end of init
+
+function updateWeightE(){
+    console.log("By the bootstrap procedure ...");
+    _weights.set(_Alt[_N-1], 0, 1.0);
+    for(var i=_N-2; i>=0; i--) {
+        var mean = 0;
+        for(var j=i+1; j<_N; j++) {
+            mean += _PCM.at(_Alt[i],_Alt[j]) * _weights.at(_Alt[j], 0);
+        }
+        _weights.set(_Alt[i], 0, mean / (_N - i - 1));
+    }
+    normalize(_weights);
+}
+
+function updateWeightGM() {
+    console.log("By the geom mean method ...");
+    for(var i=0; i<_N; i++) {
+        var _prod=1.0;
+        for(var j=0; j<_N; j++) _prod *= _PCM.at(i,j);
+        _weights.set(i, 0, Math.pow(_prod, 1.0/_N));
+    }
+    normalize(_weights);
+}
+function updateY(aI, aVs) {
+    var baseY = w2y(_weights.at(_Alt[aI], 0));
+
+    var j=0;
+    aVs.vertices[j].set( _unitLength, baseY, -_unitLength);
+
+    for(var j=0; j<_N; j++) {
+        aVs.vertices[j+1].set( -_unitLength, baseY, _unitLength*j/_N - _unitLength);
+    }
+
+    for(var j=0; j<_N; j++) {
+        aVs.vertices[j+1+_N].set(_unitLength * j/_N - _unitLength, baseY, _unitLength);
+    }
+    j=(1+2*_N);
+    aVs.vertices[j].set(0, baseY, _unitLength);
+    j=(2+2*_N);
+    aVs.vertices[j].set(_unitLength, baseY, _unitLength);
+    j=(3+2*_N);
+    aVs.vertices[j+0].set(_unitLength, baseY, -_unitLength);
+
+    for(var j=1; j<(_N-aI); j++) {
+        aVs.vertices[_N+1+j].setY(w2y(_PCM.at(_Alt[aI], _Alt[aI+j]) * _weights.at(_Alt[aI+j], 0)));
+    }
+
+    aVs.verticesNeedUpdate = true;
+
+    return baseY;
+}
+
+function updateYs() {
+    for(var i=0; i<_N; i++) {
+        var baseY = updateY(i, _Vs[i]);
+        _Hundle[i].position.y = baseY;
+    }
+}
+
+function w2y(aW) {
+    return 3 * aW * _unitLength;
+}
+function y2w(aY) {
+    return aY / _unitLength/ 3;
+}
+
+function addHundledLoop(aName, aI) {
+    var resolution = new THREE.Vector2( frameLength, frameLength );
+
+    var baseY = w2y(_weights.at(_Alt[aI], 0));
+    var pSlide = aI * _unitLength/(_N);
+
+    var vs = new THREE.Geometry();
+    vs.vertices.push(new THREE.Vector3(_unitLength, baseY, -_unitLength));
+    for(var i=0; i<_N; i++) { vs.vertices.push(new THREE.Vector3(-_unitLength, baseY, _unitLength*i/_N - _unitLength)); }
+    for(var i=0; i<_N; i++) { vs.vertices.push(new THREE.Vector3(_unitLength * i/_N - _unitLength, baseY, _unitLength)); }
+    vs.vertices.push(new THREE.Vector3(0, baseY, _unitLength));
+    vs.vertices.push(new THREE.Vector3(_unitLength, baseY, _unitLength));
+    vs.vertices.push(new THREE.Vector3(_unitLength, baseY, -_unitLength));
+
+    var lineWidth = 30;
+    if(camera instanceof THREE.PerspectiveCamera) {
+        lineWidth = 70/_N;
+    }
+    if(camera instanceof THREE.OrthographicCamera) {
+        lineWidth = 70/_N;
+    }
+    var material = new THREE.LineBasicMaterial( {
+        color: new THREE.Color(  altColor(_Alt[aI]) ),
+        linewidth: lineWidth,
+        linejoin: 'miter'//'bevel'
+    });
+    var loop = new THREE.Line( vs, material );
+    loop.name = "made";
+
+    loop.position.x = pSlide;
+    loop.position.z = pSlide;
+
+    scene.add(loop);
+
+    _Vs[aI] = vs;
+
+    var cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+    var cubeMaterial = new THREE.MeshLambertMaterial({color: altColor(_Alt[aI]), transparent:true, opacity:0.5});
+    var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+
+    cube.position.x = 1.1 * _unitLength + pSlide;
+    cube.position.y = baseY;
+    cube.position.z = 1.1 * _unitLength + pSlide;
+
+    cube.name = "hundle";
+    cube.loopID = aI;
+    cube.vs = vs;
+    cube.loop = loop;
+
+    scene.add(cube);
+
+    _Hundle[aI] = cube;
+}
+
+function setHundleColor(h, c) {
+    h.material.color.set(c);
+}
+function setLoopColor(l, c) {
+    l.material.color.set(c);
+}
+
+function altColor(alt) {
+    return _Colors[alt % _Colors.length];
+}
+
+function setExample3(){
+    _N=3;
+    _weights = new Matrix(_N, 1);
+    _PCM = list2matrix(_N, _N, [1, 1/2, 3, 2, 1, 1/2, 1/3, 2, 1]);
+
+}
+function setExample4() {
+    _N = 4;
+    _weights = new Matrix( _N, 1);
+    _PCM = new Matrix(_N, _N); for(var i=0; i<_N; i++)for(var j=0; j<_N; j++) { _PCM.set(i,j,1);}
+    _PCM.set(0,1,1); _PCM.set(0,2, 4); _PCM.set(0,3,9); _PCM.set(1,2, 7); _PCM.set(1,3,5); _PCM.set(2,3,4);
+
+    for(var i=0; i<_N; i++) {
+        for(var j=0; j<i; j++){
+            _PCM.set(i, j, 1.0/_PCM.at(j,i));
+        }
+    }
+
+}
+function setExample4Consistent(){
+    _N=4;
+    _weights = new Matrix(_N, 1);
+    _PCM = list2matrix(_N, _N, [1, 3, 9, 9/5,     1/3, 1, 3, 3/5,    1/9, 1/3, 1, 1/5,    5/9, 5/3, 5, 1]);
+
+}
+function writePCMInfo() {
+    var pcmArea = document.getElementById("pcm-info");
+    var _str = "PCM <BR><BR>";
+    _str += "N=" + _N + "<BR>";
+    _str += "<TABLE border=\"1\">";
+    for(var i=0; i<_N; i++) {
+        _str += "<TR>";
+        for(var j=0; j< i; j++) {
+            _str += "<TD>";
+            _str += "--";
+            _str += "</TD>";
+        }
+        for(var j=i; j<_N; j++) {
+            _str += "<TD>";
+            _str += ""+_PCM.at(i,j);
+            _str += "</TD>";
+        }
+        _str += "</TR>";
+    }
+    _str+= "</TABLE>";
+    pcmArea.innerHTML = _str;
+
+}
+
+</script>
+</body>
+</html>

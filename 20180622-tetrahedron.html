@@ -30,8 +30,17 @@ body {
     </TR>
 </TABLE>
 
+<TABLE>
+    <TR>
+        <TD>
 <div id="plane"></div>
-
+</TD>
+<TD>
+    Black point: geometric mean.<BR>
+    Red point: the principal eigenvector.
+</TD>
+</TR>
+</TABLE>
 <script type="text/javascript">
 
 window.onload = init;
@@ -81,6 +90,8 @@ const _Colors = [
 var _N = 4;
 var _weights;
 var _PCM;
+var wEigen, pEigen, pEigenp;
+var wGM, pGM, pGMp;
 
 
 var pScene;
@@ -101,14 +112,15 @@ var pHundle;
 var triVsOnPlane;
 
 var matPs;
-var _PCMC3;
-var matPsofC3;
-var vsC3onPlane;
+var _PCMC1, _PCMC2, _PCMC3;
+var matPsofC1, matPsofC2, matPsofC3;
+var psC1, psC2, psC3;
 
 function init() {
     // load PCM
     //setExample4NCon();
-    setExample4();
+    setExample4NConPerm();
+    //setExample4();
     //setExample4Consistent();
 
     frameLength = Math.min(window.innerWidth,  window.innerHeight)/2.1;
@@ -138,16 +150,38 @@ function init() {
     pm = copy(p03);
     rr = _PCM.at(0,3)/(1+_PCM.at(0,3));
 
+    _PCMC1 = copy(_PCM);
+    _PCMC1.set(1,0, _PCM.at(1,3)*_PCM.at(3,0));
+    _PCMC1.set(0,1, _PCM.at(0,2)*_PCM.at(2,1));
+    _PCMC1.set(3,2, _PCM.at(3,0)*_PCM.at(0,2));
+    _PCMC1.set(2,3, _PCM.at(2,1)*_PCM.at(1,3));
+    normalizeEachColumn(_PCMC1);
+    matPsofC1 = new Matrix(3,4);
+    multi_set(matPs, _PCMC1, matPsofC1);
+
+    _PCMC2 = copy(_PCM);
+    _PCMC2.set(2,0, _PCM.at(2,3)*_PCM.at(3,0));
+    _PCMC2.set(3,1, _PCM.at(3,0)*_PCM.at(0,1));
+    _PCMC2.set(0,2, _PCM.at(0,1)*_PCM.at(1,2));
+    _PCMC2.set(1,3, _PCM.at(1,2)*_PCM.at(2,3));
+    normalizeEachColumn(_PCMC2);
+    matPsofC2 = new Matrix(3,4);
+    multi_set(matPs, _PCMC2, matPsofC2);
 
     _PCMC3 = copy(_PCM);
-    _PCMC3.set(2,0, _PCM.at(2,3)*_PCM.at(3,0));
-    _PCMC3.set(3,1, _PCM.at(3,0)*_PCM.at(0,1));
-    _PCMC3.set(0,2, _PCM.at(0,1)*_PCM.at(1,2));
-    _PCMC3.set(1,3, _PCM.at(1,2)*_PCM.at(2,3));
+    _PCMC3.set(3,0, _PCM.at(3,2)*_PCM.at(2,0));
+    _PCMC3.set(2,1, _PCM.at(2,0)*_PCM.at(0,1));
+    _PCMC3.set(1,2, _PCM.at(1,3)*_PCM.at(3,2));
+    _PCMC3.set(0,3, _PCM.at(0,1)*_PCM.at(1,3));
     normalizeEachColumn(_PCMC3);
     matPsofC3 = new Matrix(3,4);
     multi_set(matPs, _PCMC3, matPsofC3);
 
+
+    console.log("PCM:");
+    _PCM.stdout();
+    setWeightGM();
+    setWeightEigen();
 
     scene = new THREE.Scene();
 
@@ -156,7 +190,7 @@ function init() {
     camera.position.set(_CameraR/1.73205, _CameraR/1.73205, _CameraR/1.73205);
     camera.lookAt(new THREE.Vector3(0, 0, 0));
 
-    camera.rotation.z =   - Math.PI / 4;
+    //camera.rotation.z =   - Math.PI / 4;
 
 
     renderer = new THREE.WebGLRenderer();
@@ -264,8 +298,8 @@ function init() {
             drugMode = false;
             remarkedObject = null;
 
-            console.log("Weights:");
-            _weights.stdout();
+            //console.log("Weights:");
+            //_weights.stdout();
         }
         if(cameraMode)cameraMode = false;
         requestAnimationFrame(render);
@@ -284,7 +318,7 @@ function init() {
         }
 
         if(e.keyCode == 38){ //up
-            rr += 0.1;
+            rr += 0.01;
             if(rr>1.0) rr=1;
             updateM();
 
@@ -292,7 +326,7 @@ function init() {
             return;
         }
         if(e.keyCode == 40){ //down
-            rr -= 0.1;
+            rr -= 0.01;
             if(rr<0.0) rr=0;
             updateM();
 
@@ -351,11 +385,11 @@ function init() {
 
     }, false);
 
-
+/*
     console.log("PCM:"); _PCM.stdout();
     updateWeightGM();
     console.log("weights:");_weights.stdout();
-
+*/
 /*
     _Alt = new Array( _N );  for(var i=0; i< _N; i++) _Alt[i] = i;
     _Vs = new Array(_N);
@@ -414,7 +448,7 @@ function initPlaneView(){
 
         var material = new THREE.LineBasicMaterial( {
             color: new THREE.Color(  0x000000 ),
-            linewidth: 10,
+            linewidth: 1,
             linejoin: 'miter'//'bevel'
         });
         var tri = new THREE.Line(triVsOnPlane, material);
@@ -429,7 +463,7 @@ function initPlaneView(){
             gl.vertices.push(mat2Vector3(aQ));
             var ml = new THREE.LineBasicMaterial( {
                 color: new THREE.Color(  aColor ),
-                linewidth: 10,
+                linewidth: 1,
                 linejoin: 'miter'//'bevel'
             });
             return new THREE.Line(gl, ml);
@@ -447,9 +481,34 @@ function initPlaneView(){
         pScene.add(lineR13);
         pScene.add(lineR23);
 
-        var pC3 = makeC3();
-        pScene.add(pC3);
 
+        //pScene.add(makeConv(matPsofC1));
+
+        //var pC2 = makeConv(matPsofC2);
+        //pScene.add(pC2);
+        //var pC3 = makeConv(matPsofC3);
+        //pScene.add(pC3);
+
+        psC1 = makeSlicePoints(matPsofC1, 0xffff00);
+        psC2 = makeSlicePoints(matPsofC2, 0x00ff00);
+        psC3 = makeSlicePoints(matPsofC3, 0x00ffff);
+        for(var j=0; j<psC3.length; j++) {
+            psC1[j].visible = false;
+            psC2[j].visible = false;
+            psC3[j].visible = false;
+            pScene.add(psC1[j]);
+            pScene.add(psC2[j]);
+            pScene.add(psC3[j]);
+        }
+
+
+        pGMp = makePoint(mat2Vector3(pGM), 10, 1.0, 0x000000);
+        pGMp.visible = false;
+        pScene.add(pGMp);
+
+        pEigenp = makePoint(mat2Vector3(pEigen), 10, 1.0, 0xff0000);
+        pEigenp.visible = false;
+        pScene.add(pEigenp);
 
         updateM();
 }
@@ -478,7 +537,7 @@ function putTetrahedron() {
 
     var material = new THREE.LineBasicMaterial( {
         color: new THREE.Color(  0x000000 ),
-        linewidth: 10,
+        linewidth: 1,
         linejoin: 'miter'//'bevel'
     });
     var tetra = new THREE.Line(geometry, material);
@@ -500,7 +559,7 @@ function putTetrahedron() {
     }
     addRatioTri(p01, p2, p3, 0x000000);
     addRatioTri(p02, p1, p3, 0x000000);
-    addRatioTri(p03, p1, p2, 0x000000);
+    addRatioTri(p03, p1, p2, 0xff0000);
     addRatioTri(p12, p0, p3, 0x000000);
     addRatioTri(p13, p2, p0, 0x000000);
     addRatioTri(p23, p0, p1, 0x000000);
@@ -538,30 +597,53 @@ function putTetrahedron() {
     scene.add(cubem);
 
 
-    var conv = makeC3();
-    scene.add(conv3);
+    scene.add(makeConv(matPsofC1, 0xffff00));
+    scene.add(makeConv(matPsofC2, 0x00ff00));
+    scene.add(makeConv(matPsofC3, 0x00ffff));
+
+    scene.add(makePoint(mat2Vector3(pGM), 10, 0.6, 0x000000));
+    scene.add(makePoint(mat2Vector3(pEigen), 10, 0.6, 0xff0000));
 
 }
 
-function makeC3(){
-    var geomC3 = new THREE.Geometry();
+function makeConv(aMat, aColor){
+    var geom = new THREE.Geometry();
     //var tmpMat = new Matrix(3,4);
-    //multi_set(matPs, matPsofC3, tmpMat);
-    geomC3.vertices.push(mat2Vector3Column(matPsofC3, 3));    geomC3.vertices.push(mat2Vector3Column(matPsofC3, 0));
-    geomC3.vertices.push(mat2Vector3Column(matPsofC3, 1));
-    geomC3.vertices.push(mat2Vector3Column(matPsofC3, 2));
-    geomC3.vertices.push(mat2Vector3Column(matPsofC3, 3));
-    geomC3.vertices.push(mat2Vector3Column(matPsofC3, 1));
-    geomC3.vertices.push(mat2Vector3Column(matPsofC3, 0));
-    geomC3.vertices.push(mat2Vector3Column(matPsofC3, 2));
+    //multi_set(matPs, matPsofC2, tmpMat);
+    geom.vertices.push(mat2Vector3Column(aMat, 3));
+    geom.vertices.push(mat2Vector3Column(aMat, 0));
+    geom.vertices.push(mat2Vector3Column(aMat, 1));
+    geom.vertices.push(mat2Vector3Column(aMat, 2));
+    geom.vertices.push(mat2Vector3Column(aMat, 3));
+    geom.vertices.push(mat2Vector3Column(aMat, 1));
+    geom.vertices.push(mat2Vector3Column(aMat, 0));
+    geom.vertices.push(mat2Vector3Column(aMat, 2));
 
-    var mateC3 = new THREE.LineBasicMaterial( {
-        color: new THREE.Color(  0xff0000 ),
-        linewidth: 10,
+    var mate = new THREE.LineBasicMaterial( {
+        color: new THREE.Color(  aColor ),
+        linewidth: 1,
         linejoin: 'miter'//'bevel'
     });
-    return conv3 = new THREE.Line(geomC3, mateC3);
+    return new THREE.Line(geom, mate);
 }
+
+function makePoint(aVec3, aSize, aOp, aColor) {
+    var geom = new THREE.Geometry();
+    geom.vertices.push(aVec3);
+
+    var mate = new THREE.PointsMaterial( { size: aSize, sizeAttenuation: false, color: aColor, transparent: true, opacity: aOp } );
+    var dot = new THREE.Points( geom, mate );
+    return dot;
+}
+
+function makeSlicePoints(aMat, aColor) {
+    var ps = new Array();
+    for(var j=0; j<6; j++) {
+        ps.push(makePoint(new THREE.Vector3(0,0,0), 10, 0.6, aColor));
+    }
+    return ps;
+}
+/*
 function updateWeightE(){
     console.log("By the bootstrap procedure ...");
     _weights.set(_Alt[_N-1], 0, 1.0);
@@ -574,7 +656,8 @@ function updateWeightE(){
     }
     normalize(_weights);
 }
-
+*/
+/*
 function updateWeightGM() {
     console.log("By the geom mean method ...");
     for(var i=0; i<_N; i++) {
@@ -583,6 +666,35 @@ function updateWeightGM() {
         _weights.set(i, 0, Math.pow(_prod, 1.0/_N));
     }
     normalize(_weights);
+}
+*/
+function setWeightGM() {
+    console.log("By the geom mean method ...");
+    pGM = new Matrix(3,1);
+    wGM = new Matrix(4,1);
+    for(var i=0; i<_N; i++) {
+        var _prod=1.0;
+        for(var j=0; j<_N; j++) _prod *= _PCM.at(i,j);
+        wGM.set(i, 0, Math.pow(_prod, 1.0/_N));
+    }
+    normalize(wGM);
+    wGM.stdout();
+    multi_set(matPs, wGM, pGM);
+}
+function setWeightEigen() {
+    console.log("By the eigenvector method ...");
+    pEigen = new Matrix(3,1);
+    wEigen = new Matrix(4,1);
+    var tmpM = new Matrix(4,1);
+    for(var i=0; i<4; i++) {wEigen.set(i,0, 1);}
+    for(var i=0; i<30; i++) {
+        multi_set(_PCM, wEigen, tmpM);
+        normalize(tmpM);
+        copy_set(tmpM, wEigen);
+    }
+    normalize(wEigen);
+    wEigen.stdout();
+    multi_set(matPs, wEigen, pEigen);
 }
 
 
@@ -615,6 +727,12 @@ function setExample4NCon(){
     _N=4;
     _weights = new Matrix(_N, 1);
     _PCM = list2matrix(_N, _N, [1, 1, 1/3, 3,     1, 1, 3, 3,    3, 1/3, 1, 3,    1/3, 1/3, 1/3, 1]);
+
+}
+function setExample4NConPerm(){
+    _N=4;
+    _weights = new Matrix(_N, 1);
+    _PCM = list2matrix(_N, _N, [1, 1/3, 3, 1,     3, 1, 3, 1/3,   1/3, 1/3, 1, 1/3,    1, 3, 3, 1]);
 
 }
 function writePCMInfo() {
@@ -711,6 +829,22 @@ function updateM(){
 
     pCamera.position.y = rr*(-_unitLength)+(1-rr)*(2*_unitLength)-_unitLength;
     pCamera.lookAt(mat2Vector3(p12Center));
+
+
+    //countSlice(_PCMC1);
+    //countSlice(_PCMC2);
+    countSlice(_PCMC1, matPsofC1, psC1);
+    countSlice(_PCMC2, matPsofC2, psC2);
+    countSlice(_PCMC3, matPsofC3, psC3);
+    //_PCMC3.stdout();
+    //console.log("rr "+rr);
+
+    if(Math.abs(wGM.at(0,0)/(wGM.at(0,0)+wGM.at(3,0)) -rr ) < 0.01) pGMp.visible = true;
+    else pGMp.visible = false;
+
+    if(Math.abs(wEigen.at(0,0)/(wGM.at(0,0)+wEigen.at(3,0)) -rr ) < 0.01) pEigenp.visible = true;
+    else pEigenp.visible = false;
+
 }
 
 
@@ -724,6 +858,56 @@ function normalizeEachColumn(mat) {
             mat.set(i, j, mat.at(i, j)/_s);
         }
     }
+}
+
+function countSlice(aPCM, aPs, aEs){
+    var count = 0;
+    var local_r;
+    var tmpU = new Matrix(3,1);
+    var tmpV = new Matrix(3,1);
+    var tmpM = new Matrix(3,1);
+
+    for(var i=0; i<aEs.length; i++) {
+        aEs[i].visible = false;
+        //aEs[p].geometry.verticesNeedUpdate = true;
+        //console.log(aEs[p]);
+    }
+
+    innerCount(0,1, 0);
+    innerCount(0,2, 1);
+    innerCount(0,3, 2);
+    innerCount(1,2, 3);
+    innerCount(1,3, 4);
+    innerCount(2,3, 5);
+    function innerCount(u,v, p) {
+        var u_r = aPCM.at(0,u)/(aPCM.at(0,u)+aPCM.at(3,u) );
+        var v_r = aPCM.at(0,v)/(aPCM.at(0,v)+aPCM.at(3,v) );
+        var f = (u_r - rr) * (v_r - rr);
+
+        if(f<0) {
+            for(var i=0; i<3; i++) {
+                tmpU.set(i,0, aPs.at(i, u));
+                tmpV.set(i, 0, aPs.at(i,v));
+            }
+            local_r = (rr - v_r) / (u_r - v_r);
+            setDivPointMat3(local_r, tmpU, tmpV, tmpM);
+            /*
+            console.log("u "+u+",  v"+v);
+            console.log("rr " + rr);
+            console.log("u r "+u_r);
+            console.log("v_r "+ v_r);
+            console.log(" local r" + local_r);
+            aPCM.stdout();
+            */
+            aEs[p].geometry.vertices[0].set(tmpM.at(0,0), tmpM.at(1,0), tmpM.at(2,0));
+            aEs[p].visible=true;
+            aEs[p].geometry.verticesNeedUpdate = true;
+
+            count ++;
+        }
+    }
+    //if(count!=0) console.log(count);
+
 }
 </script>
 </body>

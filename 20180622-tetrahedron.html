@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+<title>Test: Visualize PCM</title>
+<script type="text/javascript" src="./../extlibs/three.js"></script>
+<script type="text/javascript" src="./../extlibs/CanvasRenderer.js"></script>
+<script type="text/javascript" src="./../extlibs/Projector.js"></script>
+<script type="text/javascript" src="./../extlibs/myzlinear.js"></script>
+
+<style>
+body {
+    /* set margin to 0 and overflow to hidden, to go fullscreen */
+    margin: 0;
+    overflow: hidden;
+}
+</style>
+</head>
+<body>
+
+<TABLE>
+    <TR>
+        <TD>
+            <div id="display-loops"></div>
+        </TD>
+        <TD>
+            <div id="pcm-info"></div>
+        </TD>
+    </TR>
+</TABLE>
+
+<div id="plane"></div>
+
+<script type="text/javascript">
+
+window.onload = init;
+
+var scene;
+var camera;
+//var cameras;
+//var cameraID;
+
+var renderer;
+//var renderers;
+//var rendererID;
+
+var raycaster = new THREE.Raycaster();
+var mouse = new THREE.Vector2();
+var touch = new THREE.Vector2();
+
+var preX, X;
+var preZ, Z;
+var remarkedObject = null;
+//var remarkedLoop = 0;
+var drugMode = false;
+var cameraMode = false;
+
+var onShift = false;
+const _CameraR = 90;
+
+/*
+var _Alt;
+var _Vs;
+var _Hundle;
+*/
+
+var _unitLength  = 10;  // length of each edge of loop.
+
+var frameLength = 500;
+
+
+const _Colors = [
+    0x000000
+    ,0xffff00
+    ,0x0000ff
+    ,0xff00ff
+    ,0x555555
+]
+
+var _N = 4;
+var _weights;
+var _PCM;
+
+
+var pScene;
+var pCamera;
+var pRenderer;
+
+var p0, p1, p2, p3, p01, p02, p03, p12, p23, p23;
+var p12Center;
+var lineR12, lineR01, lineR02, lineR13, lineR23;
+var rr;
+var pm;
+var vm;
+var v03;
+var cubem;
+var triVsm;
+var pHundle;
+
+var triVsOnPlane;
+
+var matPs;
+var _PCMC3;
+var matPsofC3;
+var vsC3onPlane;
+
+function init() {
+    // load PCM
+    //setExample4NCon();
+    setExample4();
+    //setExample4Consistent();
+
+    frameLength = Math.min(window.innerWidth,  window.innerHeight)/2.1;
+    //frameLength = Math.min(400, 400);
+    _unitLength = frameLength/30;
+
+
+    p1 = list2matrix(3, 1, [0,0,0]);
+    p2 = list2matrix(3, 1, [_unitLength,0,_unitLength]);
+    p3 = list2matrix(3, 1, [_unitLength,_unitLength,0]);
+    p0 = list2matrix(3, 1, [0,_unitLength,_unitLength]);
+    matPs = new Matrix(3,4);
+    for(var i=0; i<3; i++){
+        matPs.set(i, 0, p0.at(i,0));
+        matPs.set(i, 1, p1.at(i,0));
+        matPs.set(i, 2, p2.at(i,0));
+        matPs.set(i, 3, p3.at(i,0));
+    }
+
+    p01 = new Matrix(4,1); setDivByRatioPointMat3(_PCM.at(0,1), p0, p1, p01);
+    p02 = new Matrix(4,1); setDivByRatioPointMat3(_PCM.at(0,2), p0, p2, p02);
+    p03 = new Matrix(4,1); setDivByRatioPointMat3(_PCM.at(0,3), p0, p3, p03);
+    p12 = new Matrix(4,1); setDivByRatioPointMat3(_PCM.at(1,2), p1, p2, p12);
+    p13 = new Matrix(4,1); setDivByRatioPointMat3(_PCM.at(1,3), p1, p3, p13);
+    p23 = new Matrix(4,1); setDivByRatioPointMat3(_PCM.at(2,3), p2, p3, p23);
+
+    pm = copy(p03);
+    rr = _PCM.at(0,3)/(1+_PCM.at(0,3));
+
+
+    _PCMC3 = copy(_PCM);
+    _PCMC3.set(2,0, _PCM.at(2,3)*_PCM.at(3,0));
+    _PCMC3.set(3,1, _PCM.at(3,0)*_PCM.at(0,1));
+    _PCMC3.set(0,2, _PCM.at(0,1)*_PCM.at(1,2));
+    _PCMC3.set(1,3, _PCM.at(1,2)*_PCM.at(2,3));
+    normalizeEachColumn(_PCMC3);
+    matPsofC3 = new Matrix(3,4);
+    multi_set(matPs, _PCMC3, matPsofC3);
+
+
+    scene = new THREE.Scene();
+
+    camera = new THREE.OrthographicCamera(frameLength/-30, frameLength/30,  frameLength/30, frameLength/-30, 10, 100);
+
+    camera.position.set(_CameraR/1.73205, _CameraR/1.73205, _CameraR/1.73205);
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+    camera.rotation.z =   - Math.PI / 4;
+
+
+    renderer = new THREE.WebGLRenderer();
+    renderer.setClearColor(new THREE.Color(0xffffff));
+    renderer.setSize(frameLength, frameLength);
+
+    window.addEventListener( 'mousemove', onMouseMove, false );
+    window.addEventListener( 'mousedown', onMouseDown, false);
+    window.addEventListener( 'mouseup', onMouseUp, false);
+
+    function onMouseMove( event ) {
+        preX = X;
+        preZ = Z;
+        X = event.clientX;
+        Z = event.clientY;
+        dx =  (X - preX)/frameLength;
+        dz =  (Z - preZ)/frameLength;
+
+        if(drugMode) {
+            rr += -dx + dz;
+            if(rr>1.0) rr = 1.0;
+            if(rr <0) rr = 0.0;
+
+            updateM();
+
+            requestAnimationFrame(render);
+            return;
+        }
+
+        if(cameraMode) {
+            if(onShift) {
+                camera.position.x -= 10 * dx;
+                camera.position.y += 10 * dz;
+                camera.position.z -= 10 * dz;
+            }
+            else {
+                r = Math.sqrt(camera.position.x*camera.position.x +  camera.position.z*camera.position.z);
+                if(Math.abs(dx) > Math.abs(dz)) {
+                    var theta = -dx/r * 100;
+                    var _z = camera.position.z;
+                    var _x = camera.position.x;
+                    camera.position.z = Math.cos(theta) * _z - Math.sin(theta) * _x;
+                    camera.position.x = Math.sin(theta) * _z + Math.cos(theta)*_x;
+                }
+                else {
+                    var theta = dz/r * 100;
+                    var _z = camera.position.z;
+                    var _y = camera.position.y;
+                    camera.position.z = Math.cos(theta) * _z - Math.sin(theta) * _y;
+                    camera.position.y = Math.sin(theta) * _z + Math.cos(theta)*_y;
+                }
+                camera.lookAt(new THREE.Vector3(0,0,0));
+                //camera.rotation.z =   - Math.PI / 4;
+            }
+
+        }
+
+        // calculate mouse position in normalized device coordinates
+        // (-1 to +1) for both components
+        mouse.x = ( event.clientX / frameLength ) * 2 - 1;
+        mouse.y = - ( event.clientY / frameLength ) * 2 + 1;
+
+        raycaster.setFromCamera( mouse, camera );
+        raycaster.setFromCamera( mouse, camera );
+        // calculate objects intersecting the picking ray var intersects =
+        var intersects = raycaster.intersectObjects( scene.children );
+
+        if(intersects.length > 0) {
+            for(var i = 0; i<scene.children.length; i++) {
+                if((intersects[0].object == scene.children[i]) && (scene.children[i].name == "hundle2")) {
+                    intersects[ 0 ].object.material.color.set(0x00ffff);
+
+                    remarkedObject = scene.children[i];
+                }
+            }
+        }
+        else {
+            for(var i = 0; i<scene.children.length; i++) {
+                if(scene.children[i].name == "hundle2") {
+                    scene.children[i].material.color.set(0xff0000);
+                }
+            }
+            remarkedObject = null;
+        }
+        requestAnimationFrame(render);
+    }
+
+    function onMouseDown( event ) {
+        preX = event.clientX;
+        X = preX;
+        preZ = event.clientY;
+        Z = preZ;
+        if((remarkedObject != null) && !drugMode) {
+            drugMode = true;
+            cameraMode = false;
+        }
+        if(!drugMode) {
+            cameraMode = true;
+        }
+        requestAnimationFrame(render);
+    }
+
+    function onMouseUp( event ) {
+        if(drugMode) {
+            drugMode = false;
+            remarkedObject = null;
+
+            console.log("Weights:");
+            _weights.stdout();
+        }
+        if(cameraMode)cameraMode = false;
+        requestAnimationFrame(render);
+    }
+
+    window.addEventListener("keyup", function(e){
+        if(e.keyCode == 16) { // Shift key
+            onShift = false;
+        }
+    });
+
+    window.addEventListener("keydown", function(e){
+        //console.log("key :: "+e.keyCode);
+        if(e.keyCode == 16) { // Shift key
+            onShift = true;
+        }
+
+        if(e.keyCode == 38){ //up
+            rr += 0.1;
+            if(rr>1.0) rr=1;
+            updateM();
+
+            requestAnimationFrame(render);
+            return;
+        }
+        if(e.keyCode == 40){ //down
+            rr -= 0.1;
+            if(rr<0.0) rr=0;
+            updateM();
+
+            requestAnimationFrame(render);
+            return;
+        }
+
+        if(e.keyCode == 84) {//t
+            camera.position.y = Math.sqrt(camera.position.x*camera.position.x + camera.position.y * camera.position.y + camera.position.z * camera.position.z);
+            camera.position.x = 0;
+            camera.position.z = 0;
+            camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+            requestAnimationFrame(render);
+            return;
+        }
+        if(e.keyCode == 83) {//s
+            var _r = camera.position.y = Math.sqrt(camera.position.x*camera.position.x + camera.position.y * camera.position.y + camera.position.z * camera.position.z);
+            camera.position.y = 0;
+            camera.position.x = _r * Math.cos(4/5 * Math.PI);
+            camera.position.z = _r * Math.sin(4/5 * Math.PI);
+            camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+            requestAnimationFrame(render);
+            return;
+        }
+
+        if(e.keyCode == 82) {//r
+            camera.position.set(-_CameraR/1.73205, _CameraR/1.73205, _CameraR/1.73205);
+            scene.scale.x = 1;
+            scene.scale.y = 1;
+            scene.scale.z = 1;
+            camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+            requestAnimationFrame(render);
+            return;
+        }
+
+        var scaleDt = 1.2;
+
+        if(e.keyCode == 73) {//i
+            scene.scale.x *= scaleDt;
+            scene.scale.z *= scaleDt;
+
+            requestAnimationFrame(render);
+            return;
+        }
+
+        if(e.keyCode == 74) {//j
+            scene.scale.x /= scaleDt;
+            scene.scale.z /= scaleDt;
+
+            requestAnimationFrame(render);
+            return;
+        }
+
+    }, false);
+
+
+    console.log("PCM:"); _PCM.stdout();
+    updateWeightGM();
+    console.log("weights:");_weights.stdout();
+
+/*
+    _Alt = new Array( _N );  for(var i=0; i< _N; i++) _Alt[i] = i;
+    _Vs = new Array(_N);
+    _Hundle = new Array(_N);
+*/
+
+    var ambientLight = new THREE.AmbientLight(0xffffff);
+    scene.add(ambientLight);
+
+    document.getElementById("display-loops").appendChild(renderer.domElement);
+
+    scene.add(new THREE.AxesHelper(20));
+
+    writePCMInfo();
+    putTetrahedron();
+
+    initPlaneView();
+
+    function render() {
+        requestAnimationFrame(render);
+        renderer.render(scene, camera);
+
+        //requestAnimationFrame(pRenderer);
+        pRenderer.render(pScene, pCamera);
+    }
+    render();
+}  // end of init
+
+
+function initPlaneView(){
+        pScene = new THREE.Scene();
+        pCamera = new THREE.OrthographicCamera(frameLength/-30, frameLength/30,  frameLength/20, frameLength/-50, 10, 100);
+        p12Center = new Matrix(3,1);
+        setDivPointMat3(0.5, p1, p2, p12Center);
+        pCamera.position.set(-_unitLength, -_unitLength, 2*_unitLength);
+        //pCamera.position.set(0, -_Cam/2, _unitLength);
+        //pCamera.rotation.y =- Math.PI/4;
+        //pCamera.lookAt(new THREE.Vector3(0, 0, 0));
+        //pCamera.lookAt(mat2Vector3(p3));
+        pCamera.lookAt(mat2Vector3(p12Center));
+
+        pRenderer = new THREE.WebGLRenderer();
+        pRenderer.setClearColor(new THREE.Color(0xffffff));
+        pRenderer.setSize(frameLength, frameLength);
+
+        var ambientLight = new THREE.AmbientLight(0xffffff);
+        pScene.add(ambientLight);
+        document.getElementById("plane").appendChild(pRenderer.domElement);
+
+        triVsOnPlane = new THREE.Geometry();
+
+        triVsOnPlane.vertices.push(mat2Vector3(p1));
+        triVsOnPlane.vertices.push(mat2Vector3(p2));
+        triVsOnPlane.vertices.push(v03);
+        triVsOnPlane.vertices.push(mat2Vector3(p1));
+
+        var material = new THREE.LineBasicMaterial( {
+            color: new THREE.Color(  0x000000 ),
+            linewidth: 10,
+            linejoin: 'miter'//'bevel'
+        });
+        var tri = new THREE.Line(triVsOnPlane, material);
+
+        pScene.add( tri);
+
+
+        function makeLine(aP, aQ, aColor) {
+            var gl = new THREE.Geometry();
+
+            gl.vertices.push(mat2Vector3(aP));
+            gl.vertices.push(mat2Vector3(aQ));
+            var ml = new THREE.LineBasicMaterial( {
+                color: new THREE.Color(  aColor ),
+                linewidth: 10,
+                linejoin: 'miter'//'bevel'
+            });
+            return new THREE.Line(gl, ml);
+        }
+
+        lineR12 = makeLine(p03, p12, 0xff0000);
+        lineR01 = makeLine(p01, p2, 0x00ff00);
+        lineR02 = makeLine(p02, p1, 0x0000ff);
+        lineR13 = makeLine(p13, p2, 0x000000);
+        lineR23 = makeLine(p12, p1, 0x000000);
+
+        pScene.add( lineR12);
+        pScene.add(lineR01);
+        pScene.add(lineR02);
+        pScene.add(lineR13);
+        pScene.add(lineR23);
+
+        var pC3 = makeC3();
+        pScene.add(pC3);
+
+
+        updateM();
+}
+
+
+function putTetrahedron() {
+    var geometry = new THREE.Geometry();
+
+    //0120
+    geometry.vertices.push(mat2Vector3(p0));
+    geometry.vertices.push(mat2Vector3(p1));
+    geometry.vertices.push(mat2Vector3(p2));
+    geometry.vertices.push(mat2Vector3(p0));
+
+    //0310
+    geometry.vertices.push(mat2Vector3(p0));
+    geometry.vertices.push(mat2Vector3(p3));
+    geometry.vertices.push(mat2Vector3(p1));
+    geometry.vertices.push(mat2Vector3(p0));
+
+    //0230
+    geometry.vertices.push(mat2Vector3(p0));
+    geometry.vertices.push(mat2Vector3(p2));
+    geometry.vertices.push(mat2Vector3(p3));
+    geometry.vertices.push(mat2Vector3(p0));
+
+    var material = new THREE.LineBasicMaterial( {
+        color: new THREE.Color(  0x000000 ),
+        linewidth: 10,
+        linejoin: 'miter'//'bevel'
+    });
+    var tetra = new THREE.Line(geometry, material);
+
+    scene.add( tetra );
+
+    //add tatios
+    function addRatioTri(aP12, aP3, aP4, aColor){
+        var grgeo = new THREE.Geometry();
+        grgeo.vertices.push(mat2Vector3(aP3));
+        grgeo.vertices.push(mat2Vector3(aP12));
+        grgeo.vertices.push(mat2Vector3(aP4));
+        var grtri = new THREE.Line( grgeo, new THREE.LineBasicMaterial(      {color: new THREE.Color(  aColor ),
+            transparent: true,
+            opacity: 0.3,
+                linejoin: 'miter'//'bevel'
+            }));
+        scene.add(grtri);
+    }
+    addRatioTri(p01, p2, p3, 0x000000);
+    addRatioTri(p02, p1, p3, 0x000000);
+    addRatioTri(p03, p1, p2, 0x000000);
+    addRatioTri(p12, p0, p3, 0x000000);
+    addRatioTri(p13, p2, p0, 0x000000);
+    addRatioTri(p23, p0, p1, 0x000000);
+
+
+    triVsm = new THREE.Geometry();
+
+    triVsm.vertices.push(mat2Vector3(p03));
+    triVsm.vertices.push(mat2Vector3(p1));
+    triVsm.vertices.push(mat2Vector3(p2));
+
+
+    triVsm.faces.push( new THREE.Face3( 0, 1, 2 ) );
+    triVsm.faces.push( new THREE.Face3( 0, 2, 1 ) );
+    triVsm.computeFaceNormals();
+
+    v03 = triVsm.vertices[0];
+
+    var tri = new THREE.Mesh( triVsm, new THREE.MeshNormalMaterial(color = 0x0000ff, transparent=true, opacity=0.1) );
+
+
+    scene.add(tri);
+
+
+    var cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+    var cubeMaterial = new THREE.MeshLambertMaterial({color: 0xff0000, transparent:true, opacity:0.5});
+    cubem = new THREE.Mesh(cubeGeometry, cubeMaterial);
+
+    cubem.position.x = v03.x;
+    cubem.position.y = v03.y;
+    cubem.position.z = v03.z;
+
+    cubem.name = "hundle2";
+
+    scene.add(cubem);
+
+
+    var conv = makeC3();
+    scene.add(conv3);
+
+}
+
+function makeC3(){
+    var geomC3 = new THREE.Geometry();
+    //var tmpMat = new Matrix(3,4);
+    //multi_set(matPs, matPsofC3, tmpMat);
+    geomC3.vertices.push(mat2Vector3Column(matPsofC3, 3));    geomC3.vertices.push(mat2Vector3Column(matPsofC3, 0));
+    geomC3.vertices.push(mat2Vector3Column(matPsofC3, 1));
+    geomC3.vertices.push(mat2Vector3Column(matPsofC3, 2));
+    geomC3.vertices.push(mat2Vector3Column(matPsofC3, 3));
+    geomC3.vertices.push(mat2Vector3Column(matPsofC3, 1));
+    geomC3.vertices.push(mat2Vector3Column(matPsofC3, 0));
+    geomC3.vertices.push(mat2Vector3Column(matPsofC3, 2));
+
+    var mateC3 = new THREE.LineBasicMaterial( {
+        color: new THREE.Color(  0xff0000 ),
+        linewidth: 10,
+        linejoin: 'miter'//'bevel'
+    });
+    return conv3 = new THREE.Line(geomC3, mateC3);
+}
+function updateWeightE(){
+    console.log("By the bootstrap procedure ...");
+    _weights.set(_Alt[_N-1], 0, 1.0);
+    for(var i=_N-2; i>=0; i--) {
+        var mean = 0;
+        for(var j=i+1; j<_N; j++) {
+            mean += _PCM.at(_Alt[i],_Alt[j]) * _weights.at(_Alt[j], 0);
+        }
+        _weights.set(_Alt[i], 0, mean / (_N - i - 1));
+    }
+    normalize(_weights);
+}
+
+function updateWeightGM() {
+    console.log("By the geom mean method ...");
+    for(var i=0; i<_N; i++) {
+        var _prod=1.0;
+        for(var j=0; j<_N; j++) _prod *= _PCM.at(i,j);
+        _weights.set(i, 0, Math.pow(_prod, 1.0/_N));
+    }
+    normalize(_weights);
+}
+
+
+function setExample3(){
+    _N=3;
+    _weights = new Matrix(_N, 1);
+    _PCM = list2matrix(_N, _N, [1, 1/2, 3, 2, 1, 1/2, 1/3, 2, 1]);
+
+}
+function setExample4() {
+    _N = 4;
+    _weights = new Matrix( _N, 1);
+    _PCM = new Matrix(_N, _N); for(var i=0; i<_N; i++)for(var j=0; j<_N; j++) { _PCM.set(i,j,1);}
+    _PCM.set(0,1,1); _PCM.set(0,2, 4); _PCM.set(0,3,9); _PCM.set(1,2, 7); _PCM.set(1,3,5); _PCM.set(2,3,4);
+
+    for(var i=0; i<_N; i++) {
+        for(var j=0; j<i; j++){
+            _PCM.set(i, j, 1.0/_PCM.at(j,i));
+        }
+    }
+
+}
+function setExample4Consistent(){
+    _N=4;
+    _weights = new Matrix(_N, 1);
+    _PCM = list2matrix(_N, _N, [1, 3, 9, 9/5,     1/3, 1, 3, 3/5,    1/9, 1/3, 1, 1/5,    5/9, 5/3, 5, 1]);
+
+}
+function setExample4NCon(){
+    _N=4;
+    _weights = new Matrix(_N, 1);
+    _PCM = list2matrix(_N, _N, [1, 1, 1/3, 3,     1, 1, 3, 3,    3, 1/3, 1, 3,    1/3, 1/3, 1/3, 1]);
+
+}
+function writePCMInfo() {
+    var pcmArea = document.getElementById("pcm-info");
+    var _str = "PCM <BR><BR>";
+    _str += "N=" + _N + "<BR>";
+    _str += "<TABLE border=\"1\">";
+    for(var i=0; i<_N; i++) {
+        _str += "<TR>";
+        for(var j=0; j< i; j++) {
+            _str += "<TD>";
+            _str += "--";
+            _str += "</TD>";
+        }
+        for(var j=i; j<_N; j++) {
+            _str += "<TD>";
+            _str += ""+_PCM.at(i,j);
+            _str += "</TD>";
+        }
+        _str += "</TR>";
+    }
+    _str+= "</TABLE>";
+    pcmArea.innerHTML = _str;
+
+}
+
+function mat2Vector3(amat) {
+    /*
+    var v = new THREE.Vector3(0,0,0);
+    setMat2Vector3(amat, v);
+    return v;
+    */
+    return mat2Vector3Column(amat, 0);
+}
+function mat2Vector3Column(amat, aj) {
+    var v = new THREE.Vector3(0,0,0);
+    setMat2Vector3Column(amat, v, aj);
+    return v;
+}
+function setMat2Vector3(amat, avec) {
+    //avec.set( amat.at(0,0), amat.at(1,0), amat.at(2,0));
+    setMat2Vector3Column(amat, avec, 0);
+}
+function setMat2Vector3Column(amat, avec, aj) {
+    avec.set(amat.at(0, aj), amat.at(1, aj), amat.at(2, aj));
+}
+function setDivByRatioPointMat3(aR, aP1, aP2, aP12) {
+    setDivPointMat3(aR/(1+aR), aP1, aP2, aP12);
+}
+function setDivPointMat3(aR, aP1, aP2, aP12) {
+    for(var i=0; i<3; i++) {
+        aP12.set(i, 0,  aR*aP1.at(i,0) + (1-aR)*aP2.at(i,0));
+    }
+}
+function updateM(){
+
+    setDivPointMat3(rr, p0, p3, pm);
+    setMat2Vector3(pm, v03);
+
+    cubem.position.x = v03.x; cubem.position.y=v03.y; cubem.position.z = v03.z;
+    triVsm.vertices[0].set(v03.x, v03.y, v03.z);
+
+    triVsm.verticesNeedUpdate = true;
+
+    triVsOnPlane.vertices[2].set(v03.x, v03.y, v03.z);
+    triVsOnPlane.verticesNeedUpdate = true;
+
+    //console.log(rr);
+    lineR12.geometry.vertices[0].set(v03.x, v03.y, v03.z);
+    lineR12.geometry.verticesNeedUpdate = true;
+
+    var mat = new Matrix(3, 1);
+    setDivPointMat3(_PCM.at(0,1)/(_PCM.at(0,1)+rr), pm, p1, mat);
+    var v = mat2Vector3(mat, v);
+    lineR01.geometry.vertices[0].set(v.x, v.y, v.z);
+    lineR01.geometry.verticesNeedUpdate = true;
+
+    setDivPointMat3(_PCM.at(0,2)/(_PCM.at(0,2)+rr), pm, p2, mat);
+    setMat2Vector3(mat, v);
+    lineR02.geometry.vertices[0].set(v.x, v.y, v.z);
+    lineR02.geometry.verticesNeedUpdate = true;
+
+    setDivPointMat3(_PCM.at(3,1)/(_PCM.at(3,1)+(1-rr)), pm, p1, mat);
+    setMat2Vector3(mat, v);
+    lineR13.geometry.vertices[0].set(v.x, v.y, v.z);
+    lineR13.geometry.verticesNeedUpdate = true;
+
+    setDivPointMat3(_PCM.at(3,2)/(_PCM.at(3,2)+(1-rr)), pm, p2, mat);
+    setMat2Vector3(mat, v);
+    lineR23.geometry.vertices[0].set(v.x, v.y, v.z);
+    lineR23.geometry.verticesNeedUpdate = true;
+
+    //console.log(triVsm);
+
+    pCamera.position.y = rr*(-_unitLength)+(1-rr)*(2*_unitLength)-_unitLength;
+    pCamera.lookAt(mat2Vector3(p12Center));
+}
+
+
+function normalizeEachColumn(mat) {
+    for(var j=0; j<mat.n; j++) {
+        var _s = 0.0;
+        for(var i=0; i<mat.m; i++) {
+            _s += mat.at(i,j);
+        }
+        for(var i=0; i<mat.m; i++) {
+            mat.set(i, j, mat.at(i, j)/_s);
+        }
+    }
+}
+</script>
+</body>
+</html>

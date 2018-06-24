@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+    <!DOCTYPE html>
 
 <html>
 
@@ -7,6 +7,8 @@
 <script type="text/javascript" src="./../extlibs/three.js"></script>
 <script type="text/javascript" src="./../extlibs/CanvasRenderer.js"></script>
 <script type="text/javascript" src="./../extlibs/Projector.js"></script>
+<script type="text/javascript" src="../extlibs/ConvexGeometry.js"></script>
+<script type="text/javascript" src="../extlibs/QuickHull.js"></script>
 <script type="text/javascript" src="./../extlibs/myzlinear.js"></script>
 
 <style>
@@ -115,12 +117,15 @@ var matPs;
 var _PCMC1, _PCMC2, _PCMC3;
 var matPsofC1, matPsofC2, matPsofC3;
 var psC1, psC2, psC3;
+var pConv1, pConv2, pConv3;
+var pConv1Mesh, pConv2Mesh, pConv3Mesh;
 
 function init() {
     // load PCM
     //setExample4NCon();
     setExample4NConPerm();
     //setExample4();
+    //setExample4a();
     //setExample4Consistent();
 
     frameLength = Math.min(window.innerWidth,  window.innerHeight)/2.1;
@@ -501,6 +506,16 @@ function initPlaneView(){
             pScene.add(psC3[j]);
         }
 
+        pConv1 = makePConv();
+        pConv2 = makePConv();
+        pConv3 = makePConv();
+        pConv1Mesh = makePConvMesh(pConv1, 0xffff00);
+        pConv2Mesh = makePConvMesh(pConv2, 0x00ff00);
+        pConv3Mesh = makePConvMesh(pConv3, 0x00ffff);
+
+        pScene.add(pConv1Mesh);
+        pScene.add(pConv2Mesh);
+        pScene.add(pConv3Mesh);
 
         pGMp = makePoint(mat2Vector3(pGM), 10, 1.0, 0x000000);
         pGMp.visible = false;
@@ -580,9 +595,7 @@ function putTetrahedron() {
 
     var tri = new THREE.Mesh( triVsm, new THREE.MeshNormalMaterial(color = 0x0000ff, transparent=true, opacity=0.1) );
 
-
     scene.add(tri);
-
 
     var cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
     var cubeMaterial = new THREE.MeshLambertMaterial({color: 0xff0000, transparent:true, opacity:0.5});
@@ -595,7 +608,6 @@ function putTetrahedron() {
     cubem.name = "hundle2";
 
     scene.add(cubem);
-
 
     scene.add(makeConv(matPsofC1, 0xffff00));
     scene.add(makeConv(matPsofC2, 0x00ff00));
@@ -642,6 +654,30 @@ function makeSlicePoints(aMat, aColor) {
         ps.push(makePoint(new THREE.Vector3(0,0,0), 10, 0.6, aColor));
     }
     return ps;
+}
+function makePConv() {
+    var ps = [];
+    ps.push(new THREE.Vector3(10, 0, 0));
+    ps.push(new THREE.Vector3(0, 10, 0));
+    ps.push(new THREE.Vector3(0, 0, 10));
+    ps.push(new THREE.Vector3(0, 0, 0));
+    ps.push(new THREE.Vector3(0, 0, 0));
+    ps.push(new THREE.Vector3(0, 0, 0));
+
+    return  new THREE.ConvexGeometry(ps);
+}
+
+function makePConvMesh(aConv, aColor) {
+    var material = new THREE.MeshLambertMaterial( {
+        color: aColor,
+        opacity: 0.8,
+        transparent: true
+    } );
+    var mesh = new THREE.Mesh( aConv,  material );
+    mesh.material.side = THREE.BackSide; // back faces
+    mesh.renderOrder = 0;
+
+    return mesh;
 }
 /*
 function updateWeightE(){
@@ -698,12 +734,6 @@ function setWeightEigen() {
 }
 
 
-function setExample3(){
-    _N=3;
-    _weights = new Matrix(_N, 1);
-    _PCM = list2matrix(_N, _N, [1, 1/2, 3, 2, 1, 1/2, 1/3, 2, 1]);
-
-}
 function setExample4() {
     _N = 4;
     _weights = new Matrix( _N, 1);
@@ -717,6 +747,7 @@ function setExample4() {
     }
 
 }
+
 function setExample4Consistent(){
     _N=4;
     _weights = new Matrix(_N, 1);
@@ -733,6 +764,12 @@ function setExample4NConPerm(){
     _N=4;
     _weights = new Matrix(_N, 1);
     _PCM = list2matrix(_N, _N, [1, 1/3, 3, 1,     3, 1, 3, 1/3,   1/3, 1/3, 1, 1/3,    1, 3, 3, 1]);
+
+}
+function setExample4a(){
+    _N=4;
+    _weights = new Matrix(_N, 1);
+    _PCM = list2matrix(_N, _N, [1, 1, 3, 9,     1, 1, 5, 5,    1/3, 1/5, 1, 5,    1/9, 1/5, 1/5, 1]);
 
 }
 function writePCMInfo() {
@@ -810,6 +847,8 @@ function updateM(){
     lineR01.geometry.vertices[0].set(v.x, v.y, v.z);
     lineR01.geometry.verticesNeedUpdate = true;
 
+    console.log("r:w0/w1=" + _PCM.at(0,1)/(_PCM.at(0,1)+rr));
+
     setDivPointMat3(_PCM.at(0,2)/(_PCM.at(0,2)+rr), pm, p2, mat);
     setMat2Vector3(mat, v);
     lineR02.geometry.vertices[0].set(v.x, v.y, v.z);
@@ -833,9 +872,12 @@ function updateM(){
 
     //countSlice(_PCMC1);
     //countSlice(_PCMC2);
-    countSlice(_PCMC1, matPsofC1, psC1);
-    countSlice(_PCMC2, matPsofC2, psC2);
-    countSlice(_PCMC3, matPsofC3, psC3);
+    countSlice(_PCMC1, matPsofC1, psC1, pConv1, pConv1Mesh);
+    countSlice(_PCMC2, matPsofC2, psC2, pConv2, pConv2Mesh);
+    console.log("PCM33333333");
+    countSlice(_PCMC3, matPsofC3, psC3, pConv3, pConv3Mesh);
+
+
     //_PCMC3.stdout();
     //console.log("rr "+rr);
 
@@ -860,12 +902,15 @@ function normalizeEachColumn(mat) {
     }
 }
 
-function countSlice(aPCM, aPs, aEs){
+function countSlice(aPCM, aPs, aEs, aConv, aConvMesh){
     var count = 0;
     var local_r;
     var tmpU = new Matrix(3,1);
     var tmpV = new Matrix(3,1);
     var tmpM = new Matrix(3,1);
+
+
+    aConvMesh.visible = false;
 
     for(var i=0; i<aEs.length; i++) {
         aEs[i].visible = false;
@@ -879,6 +924,7 @@ function countSlice(aPCM, aPs, aEs){
     innerCount(1,2, 3);
     innerCount(1,3, 4);
     innerCount(2,3, 5);
+
     function innerCount(u,v, p) {
         var u_r = aPCM.at(0,u)/(aPCM.at(0,u)+aPCM.at(3,u) );
         var v_r = aPCM.at(0,v)/(aPCM.at(0,v)+aPCM.at(3,v) );
@@ -890,6 +936,7 @@ function countSlice(aPCM, aPs, aEs){
                 tmpV.set(i, 0, aPs.at(i,v));
             }
             local_r = (rr - v_r) / (u_r - v_r);
+            console.log("inconv r "+"w"+u+"/w"+v+" = "+local_r);
             setDivPointMat3(local_r, tmpU, tmpV, tmpM);
             /*
             console.log("u "+u+",  v"+v);
@@ -900,12 +947,23 @@ function countSlice(aPCM, aPs, aEs){
             aPCM.stdout();
             */
             aEs[p].geometry.vertices[0].set(tmpM.at(0,0), tmpM.at(1,0), tmpM.at(2,0));
-            aEs[p].visible=true;
+            aEs[p].visible=false;//aEs[p].visible=true;
             aEs[p].geometry.verticesNeedUpdate = true;
+
+            for(var i=count; i<aConv.vertices.length; i++){
+                aConv.vertices[i].set(tmpM.at(0,0), tmpM.at(1,0), tmpM.at(2,0));
+            }
 
             count ++;
         }
     }
+
+    if(count < 3) aConvMesh.visible = false;
+    else {
+        aConv.verticesNeedUpdate = true;
+        aConvMesh.visible = true;
+    }
+
     //if(count!=0) console.log(count);
 
 }

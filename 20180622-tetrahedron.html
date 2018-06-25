@@ -3,6 +3,8 @@
 <html>
 
 <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
 <title>Test: Visualize PCM</title>
 <script type="text/javascript" src="./../extlibs/three.js"></script>
 <script type="text/javascript" src="./../extlibs/CanvasRenderer.js"></script>
@@ -14,6 +16,11 @@
 
 <!--
 2018/06/25(月)   00:54:44
+2018/06/25(月)   23:26:18
+  テキスト追加
+  /Applications/Google\ ChromContents/MacOS/Google\ Chrome --allow-file-access-from-files
+  シフトドラッグで平面スライド
+  数字キー1,2,3 で凸包を消す。
 -->
 
 </head>
@@ -37,6 +44,8 @@
 <div id="plane"></div>
 </TD>
 <TD>
+    Shift+drug or up/down : slide plane (change w1/w4)
+    <HR>
     Black point: geometric mean.<BR>
         Red point: the principal eigenvector.<BR>
             <HR>
@@ -108,6 +117,7 @@ var matPs;
 var _PCMC1, _PCMC2, _PCMC3;
 var matPsofC1, matPsofC2, matPsofC3;
 var psC1, psC2, psC3;
+var conv1, conv2, conv3;
 var pConv1, pConv2, pConv3;
 var pConv1Mesh, pConv2Mesh, pConv3Mesh;
 var c1Color = 0xffaa00;
@@ -222,7 +232,7 @@ function _init(aNumPCM) {
         var dx =  (X - preX)/frameLength;
         var dz =  (Z - preZ)/frameLength;
 
-        if(drugMode) {
+        if((drugMode) || (onShift)) {
             rr += -dx + dz;
             if(rr>1.0) rr = 1.0;
             if(rr <0) rr = 0.0;
@@ -234,7 +244,8 @@ function _init(aNumPCM) {
         }
 
         if(cameraMode) {
-            if(onShift) {
+            //if(onShift) {
+            if(1 != 1) {
                 camera.position.x -= 10 * dx;
                 camera.position.y += 10 * dz;
                 camera.position.z -= 10 * dz;
@@ -442,11 +453,33 @@ function keyDownHundler(e){
 
         return;
     }
+
+    if(e.keyCode == 49){ //1
+        conv1.visible = ! conv1.visible;
+
+        requestAnimationFrame(render);
+
+        return;
+    }
+    if(e.keyCode == 50){ //2
+        conv2.visible = ! conv2.visible;
+
+        requestAnimationFrame(render);
+
+        return;
+    }
+    if(e.keyCode == 51){ //3
+        conv3.visible = ! conv3.visible;
+
+        requestAnimationFrame(render);
+
+        return;
+    }
 }
 
 function initPlaneView(){
         pScene = new THREE.Scene();
-        pCamera = new THREE.OrthographicCamera(-_unitLength/1.4142, _unitLength/1.4142,  7/4*_unitLength/1.4142, -(_unitLength/1.4142)/4, 10, 100);
+        pCamera = new THREE.OrthographicCamera(-1.2*_unitLength/1.4142, 1.2*_unitLength/1.4142,  1.2*7/4*_unitLength/1.4142, -(1.2*_unitLength/1.4142)/4, 10, 100);
 
         pCamera.position.set(-_unitLength, -_unitLength, 2*_unitLength);
         pCamera.lookAt(mat2Vector3(p12Center));
@@ -533,6 +566,10 @@ function initPlaneView(){
         pEigenp.visible = false;
         pScene.add(pEigenp);
 
+
+        makeText(pScene, "alt2", p1);
+        makeText(pScene, "alt3", p2);
+
         updateM();
 }
 
@@ -616,15 +653,21 @@ function putTetrahedron() {
 
     cubem.name = "hundle2";
 
-    scene.add(cubem);
-
-    scene.add(makeConv(matPsofC1, c1Color));
-    scene.add(makeConv(matPsofC2, c2Color));
-    scene.add(makeConv(matPsofC3, c3Color));
+    //scene.add(cubem);
+    conv1 = makeConv(matPsofC1, c1Color);
+    conv2 = makeConv(matPsofC2, c2Color);
+    conv3 = makeConv(matPsofC3, c3Color);
+    scene.add(conv1);
+    scene.add(conv2);
+    scene.add(conv3);
 
     scene.add(makePoint(mat2Vector3(pGM), 10, 0.6, 0x000000));
     scene.add(makePoint(mat2Vector3(pEigen), 10, 0.6, 0xff0000));
 
+    makeText(scene, "alt1", p0);
+    makeText(scene, "alt2", p1);
+    makeText(scene, "alt3", p2);
+    makeText(scene, "alt4", p3);
 }
 
 function makeConv(aMat, aColor){
@@ -769,6 +812,8 @@ function setDivPointMat3(aR, aP1, aP2, aP12) {
     }
 }
 function updateM(){
+
+    console.log("w1/(w1+w4) = " + rr);
 
     setDivPointMat3(rr, p0, p3, pm);
     setMat2Vector3(pm, v03);
@@ -926,6 +971,28 @@ function clearObjects(){
             aScene.remove(obj);
         }
     }
+}
+
+function makeText(aScene, aStr, aPositionMat) {
+    var loader = new THREE.FontLoader();
+    loader.load('../extlibs/helvetiker_regular.typeface.json', function(font){
+        var textGeometry = new THREE.TextGeometry(aStr, {
+            font: font,
+            size: 1,
+            height: 0.1,
+            bevelThickness: 1,
+            curveSegments: 1
+        });
+        var materials = [
+            new THREE.MeshBasicMaterial( { color: 0x000000, overdraw: 0.5 } ),
+            new THREE.MeshBasicMaterial( { color: 0x000000, overdraw: 0.5 } )
+        ];
+        var textMesh = new THREE.Mesh(textGeometry, materials);
+        aScene.add(textMesh);
+        textMesh.position.x = aPositionMat.at(0,0);
+        textMesh.position.y = aPositionMat.at(1,0);
+        textMesh.position.z = aPositionMat.at(2,0);
+    });
 }
 
 </script>

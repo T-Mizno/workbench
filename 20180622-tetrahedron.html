@@ -18,7 +18,7 @@
 2018/06/25(月)   00:54:44
 2018/06/25(月)   23:26:18
   テキスト追加
-  /Applications/Google\ ChromContents/MacOS/Google\ Chrome --allow-file-access-from-files
+  /Applications/Google\ Chrom/Contents/MacOS/Google\ Chrome --allow-file-access-from-files
   シフトドラッグで平面スライド
   数字キー1,2,3 で凸包を消す。
 -->
@@ -125,12 +125,12 @@ var c2Color = 0x00ffff;
 var c3Color = 0xff00ff;
 
 var ls_examples = [
-    [1,1,4,9,      1,1,7,5,    1/4, 1/7, 1, 4,   1/9, 1/5,1/4, 1]
+    [1, 1/3, 3, 1,     3, 1, 3, 1/3,   1/3, 1/3, 1, 1/3,    1, 3, 3, 1] // other perm above
+    ,[1, 1, 1/3, 3,     1, 1, 3, 3,    3, 1/3, 1, 3,    1/3, 1/3, 1/3, 1]
+    ,[1,1,4,9,      1,1,7,5,    1/4, 1/7, 1, 4,   1/9, 1/5,1/4, 1]
     ,[1, 1, 9, 3,     1, 1, 3, 7,    1/9, 1/3, 1, 1/5,    1/3, 1/7, 5, 1]
     ,[1, 4,9,1,     1/4,1,4,1/7,    1/9, 1/4, 1, 1/5,    1, 7, 5, 1]
     ,[1, 3, 9, 9/5,     1/3, 1, 3, 3/5,    1/9, 1/3, 1, 1/5,    5/9, 5/3, 5, 1] // Completely setExample4Consistent
-    ,[1, 1, 1/3, 3,     1, 1, 3, 3,    3, 1/3, 1, 3,    1/3, 1/3, 1/3, 1]
-    ,[1, 1/3, 3, 1,     3, 1, 3, 1/3,   1/3, 1/3, 1, 1/3,    1, 3, 3, 1] // other perm above
 ];
 var currentNumPCM = 0;
 
@@ -558,17 +558,17 @@ function initPlaneView(){
         pScene.add(pConv2Mesh);
         pScene.add(pConv3Mesh);
 
-        pGMp = makePoint(mat2Vector3(pGM), 10, 1.0, 0x000000);
+        pGMp = makePoint(mat2Vector3(pGM), 5, 1.0, 0x000000);
         pGMp.visible = false;
         pScene.add(pGMp);
 
-        pEigenp = makePoint(mat2Vector3(pEigen), 10, 1.0, 0xff0000);
+        pEigenp = makePoint(mat2Vector3(pEigen), 5, 1.0, 0xff0000);
         pEigenp.visible = false;
         pScene.add(pEigenp);
 
 
-        makeText(pScene, "alt2", p1);
-        makeText(pScene, "alt3", p2);
+        makeText(pScene, "  2", p1);
+        makeText(pScene, "3", p2);
 
         updateM();
 }
@@ -664,10 +664,10 @@ function putTetrahedron() {
     scene.add(makePoint(mat2Vector3(pGM), 10, 0.6, 0x000000));
     scene.add(makePoint(mat2Vector3(pEigen), 10, 0.6, 0xff0000));
 
-    makeText(scene, "alt1", p0);
-    makeText(scene, "alt2", p1);
-    makeText(scene, "alt3", p2);
-    makeText(scene, "alt4", p3);
+    makeText(scene, "1", p0);
+    makeText(scene, "2", p1);
+    makeText(scene, "3", p2);
+    makeText(scene, "4", p3);
 }
 
 function makeConv(aMat, aColor){
@@ -721,8 +721,8 @@ function makePConv() {
 function makePConvMesh(aConv, aColor) {
     var material = new THREE.MeshLambertMaterial( {
         color: aColor,
-        opacity: 0.7,
-        transparent: true
+        transparent: true,
+        opacity: 0.5
     } );
     var mesh = new THREE.Mesh( aConv,  material );
     mesh.material.side = THREE.BackSide; // back faces

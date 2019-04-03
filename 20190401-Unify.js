@@ -47,7 +47,13 @@ function varsInTerm(t, vars) {
             let flg = false;
             for (let i = 0; i < vars.length; i++) {
                 if (vars[i]['Var'] == t[k]['Var']) {
+                    /*
+                    if (!vars[i]['forward'] && t[k]['forward']) {
+                        vars[i]['forward'] = t[i]['forward'];
+                    }
+                    */
                     t[k] = vars[i];
+
                     flg = true;
                     break;
                 }
@@ -104,6 +110,9 @@ function unify(adag1, adag2) {
     let dag1 = deref(adag1);
     let dag2 = deref(adag2);
 
+    //console.log(dag1);
+    //console.log(dag2);
+
     if (dag1 == dag2) return dag2;
     if (isVar(dag1)) {
         dag1['forward'] = dag2;
@@ -111,6 +120,7 @@ function unify(adag1, adag2) {
     }
     if (isVar(dag2)) {
         dag2['forward'] = dag1;
+        //dag1['forward'] = dag2;
         return dag1;
     }
     if (isAtomic(dag1) && isComposition(dag2)) return BOTTOM;
@@ -185,7 +195,7 @@ let ttt2 = { t0: 'likes', t1: 'Kim', t2: 'Robin' };
 unifyTest(ttt1, ttt2);
 
 function a2t(a) {
-    console.log(a);
+    console.dir(a, { depth: 5 });
     let t = {};
     for (let i = 0; i < a.length; i++) {
         if (Array.isArray(a[i])) {
@@ -199,6 +209,13 @@ function a2t(a) {
         }
     }
     return t;
+}
+function a2q(a) {
+    let r = [];
+    for (let j = 0; j < a.length; j++) {
+        r.push(a2t(a[j]));
+    }
+    return r;
 }
 function a2rules(a) {
     let rs = [];
@@ -216,62 +233,49 @@ function deepCopy(t) {
     return JSON.parse(JSON.stringify(t));
 }
 
-let rule343 = [
-    [["likes", "Kim", "Robin"]],
-    [["likes", "Sandy", "Lee"]],
-    [["likes", "Sandy", "Kim"]],
-    [["likes", "Robin", "cats"]],
-    [["likes", "Sandy", "?x"], ["likes", "?x", "cats"]],
-    [["likes", "Kim", "?x"], ["likes", "?x", "Lee"], ["likes", "?x", "Kim"]],
-    [["likes", "?x", "?x"]]];
-let q343 = ["likes", "Sandy", "?who"];
-//let q343 = ["likes", "Sandy", "Robin"];
 
-function prove3(qs, cs, rs, results) {
+function prove3(aQs, aCs, rs, results) {
     let count = 0;
     count++;
     console.log("######################## CCCOUNT" + count);
-    if (qs.length < 1) {
+    if (aQs.length < 1) {
         console.log("SUCCESS!!!!!!!");
-        if (cs.length > 0) {
-            console.dir(cs, { depth: 5 });
-            results.push(cs);
+        if (aCs.length > 0) {
+            console.dir(aCs, { depth: 5 });
+            results.push(aCs);
         }
         return true;
     }
 
-    let q = qs[0];
-    qs.shift();
     let flg = false;
     for (let rule of rs) {
+        let qs = deepCopy(aQs);
+        let q = qs[0];
+        qs.shift();
+        let cs = deepCopy(aCs);
+        reduceVars({ cs: cs, q: q, qs: qs });
         let r = deepCopy(rule);
-        let qc = deepCopy(q);
-        reduceVars(qc);
         reduceVarsWithRename(r);
         console.log("trying query");
-        console.log(qc);
+        console.log(q);
         console.log("qs");
         console.log(qs);
         console.log("cs");
         console.log(cs);
         console.log("trying rule");
         console.log(r);
-        let u = unify(qc, r[0]);
+        let u = unify(q, r[0]);
         if (!isBottom(u)) {
             console.log("unify!!!");
             console.log(u);
             flg = true;
-            let newQs = deepCopy(qs);
-            reduceVars(newQs);
             r.shift();
-            let tmpQ = r.concat(newQs);
-            let newCS = deepCopy(cs);
-            newCS.push(qc);
+            let tmpQ = r.concat(qs);
+            cs.push(u);
             console.log("newQs");
             console.log(tmpQ);
 
-            prove3(tmpQ, newCS, rs, results);
-
+            prove3(tmpQ, cs, rs, results);
         }
     }
     if (!flg) {
@@ -282,21 +286,55 @@ function prove3(qs, cs, rs, results) {
 
 function prove(qs, rules) {
     let results = [];
-    prove3([qs], [], rules, results);
+    prove3(qs, [], rules, results);
     return results;
 }
 
-let rules = a2rules(rule343);
-let query = a2t(q343);
+
+
+let rule343 = [
+    [["likes", "Kim", "Robin"]],
+    [["likes", "Sandy", "Lee"]],
+    [["likes", "Sandy", "Kim"]],
+    [["likes", "Robin", "cats"]],
+    [["likes", "Sandy", "?x"], ["likes", "?x", "cats"]],
+    [["likes", "Kim", "?x"], ["likes", "?x", "Lee"], ["likes", "?x", "Kim"]],
+    [["likes", "?x", "?x"]]];
+let q343 = [["likes", "Sandy", "?who"]];
+let q3452 = [["likes", "?who", "Sandy"]];
+let q3453 = [["likes", "Robin", "LEE"]];
+let q3454 = [["likes", "?x", "?y"], ["likes", "?y", "?x"]];
+//let q343 = ["likes", "Sandy", "Robin"];
+
+function a2cons(a) {
+    if (a.length < 1) return "NIL";
+    return { car: a[0], cdr: a2cons(a.slice(1)) };
+}
+
+let rule338 = [
+    [{ t0: "member", t1: { Var: "item" }, t2: { car: { Var: "item" }, cdr: { Var: "rest" } } }],
+    [{ t0: "member", t1: { Var: "item" }, t2: { car: { Var: "x" }, cdr: { Var: "rest" } } }, { t0: "member", t1: { Var: "item" }, t2: { Var: "rest" } }]
+];
+//let q3393 = [{ t0: "member", t1: { Var: "x" }, t2: { car: "1", cdr: { car: "2", cdr: { car: "3", cdr: "NIL" } } } }];
+let q3393 = [{ t0: "member", t1: { Var: "x" }, t2: a2cons([1, 2, 3, 5, 7]) }];
+
+
+let rules = rule338;//a2rules(rule338);
+let query = q3393;//a2q(q3393);
 reduceVars(query);
 
 console.log(JSON.stringify(rules));
-console.log(rules);
-console.log(query);
+console.dir(rules, { depth: 5 });
+console.dir(query, { depth: 5 });
+
 
 let RESULT = prove(query, rules);
 
 console.log("RESULT################# " + RESULT.length);
 for (let r of RESULT) {
     console.dir(r, { depth: 5 });
+    let vs = [];
+    varsInTerm(r, vs);
+    console.log(vs);
 }
+console.log("RESULT################# " + RESULT.length);

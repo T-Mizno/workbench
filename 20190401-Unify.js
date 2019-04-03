@@ -38,22 +38,23 @@ function checkVar(t) {
     return;
 }
 
-function varsInTerm(t, vars) {
-    if (!isComposition(t)) {
+function varsInTerm(aT, vars) {
+    if (!isComposition(aT) && !isVar(aT)) {
         return vars;
     }
+
+    let t;
+    if (isVar(aT)) t = { sample: aT };
+    else t = aT;
     for (var k of Object.keys(t)) {
         if (isVar(t[k])) {
+            if (t[k]['forward']) {
+                varsInTerm(t[k]['forward'], vars);
+            }
             let flg = false;
             for (let i = 0; i < vars.length; i++) {
                 if (vars[i]['Var'] == t[k]['Var']) {
-                    /*
-                    if (!vars[i]['forward'] && t[k]['forward']) {
-                        vars[i]['forward'] = t[i]['forward'];
-                    }
-                    */
                     t[k] = vars[i];
-
                     flg = true;
                     break;
                 }
@@ -62,7 +63,9 @@ function varsInTerm(t, vars) {
                 vars.push(t[k]);
             }
         }
-        if (isComposition(t[k])) varsInTerm(t[k], vars);
+        if (isComposition(t[k])) {
+            varsInTerm(t[k], vars);
+        }
     }
     return vars;
 }
@@ -106,6 +109,24 @@ function complements(dag1, dag2) {
     let f2 = Object.keys(dag2);
     return f1.filter(e => f2.indexOf(e) < 0);
 }
+/*
+function recCopy(dag) {
+    if (dag['copy']) {
+        return dag['copy'];
+    }
+    if (isAtomic(dag)) return dag;
+
+    if (isVar(dag)) return dag;
+
+    let c = {};
+    for (let k of Object.keys(dag)) {
+        c[k] = recCopy(dag[k]);
+    }
+    dag.copy = c;
+    return c;
+}
+*/
+
 function unify(adag1, adag2) {
     let dag1 = deref(adag1);
     let dag2 = deref(adag2);
@@ -132,12 +153,18 @@ function unify(adag1, adag2) {
     }
     let shared = intersections(dag1, dag2);
     let newed = complements(dag1, dag2);
+
     dag1['forward'] = dag2;
 
     let isSuccess = true;
     for (var arc of shared) {
-        let flg = isBottom(unify(dag1[arc], dag2[arc]));
-        isSuccess = isSuccess && (!flg);
+        let result = unify(dag1[arc], dag2[arc]);
+        let flg = isBottom(result);
+        if (flg) {
+            isSuccess = false;
+            break;
+        }
+        //isSuccess = isSuccess && (!flg);
     }
 
     if (isSuccess) {
@@ -150,10 +177,82 @@ function unify(adag1, adag2) {
         }
         return dag2;
     }
-
     return BOTTOM;
 }
+/*
+function unify2(adag1, adag2) {
+    let dag1 = deref(adag1);
+    let dag2 = deref(adag2);
 
+    //console.log(dag1);
+    //console.log(dag2);
+
+    if (dag1 == dag2) return dag2;
+    if (isVar(dag1)) {
+        dag1['forward'] = dag2;
+        return dag2;
+    }
+    if (isVar(dag2)) {
+        dag2['forward'] = dag1;
+        //dag1['forward'] = dag2;
+        return dag1;
+    }
+    if (isAtomic(dag1) && isComposition(dag2)) return BOTTOM;
+    if (isComposition(dag1) && isAtomic(dag2)) return BOTTOM;
+    if (isAtomic(dag1) && isAtomic(dag2) && (dag1 != dag2)) return BOTTOM;
+    if (isAtomic(dag1) && isAtomic(dag2) && (dag1 == dag2)) {
+        dag1['forward'] = dag2;
+        return dag1;
+    }
+    if (!dag1['copy'] && !dag2['copy']) {
+        let copy = {};
+        copy.status = "copy";
+        copy.arclist = [];
+        dag1.copy = copy;
+        dag2.copy = copy;
+        let newdag1 = complements(dag1, dag2);
+        let newdag2 = complements(dag2, dag1);
+        let shared = intersections(dag2, dag1);
+        for (let arc of shared) {
+            let result = unify2(dag1[arc], dag2[arc]);
+            if (isBottom(result)) return BOTTOM;
+            copy.arclist.push(result);
+        }
+        for (let arc of newdag1) {
+            copy.arclist.push(recCopy(newdag1[arc]));
+        }
+        for (let arc of newdag2) {
+            copy.arclist.push(recCopy(newdag2[arc]));
+        }
+        return copy;
+    }
+    if (dag1['copy'] && !dag2['copy']) {
+        unify(dag.copy)
+
+
+        let shared = intersections(dag1, dag2);
+        let newed = complements(dag1, dag2);
+        dag1['forward'] = dag2;
+
+        let isSuccess = true;
+        for (var arc of shared) {
+            let flg = isBottom(unify(dag1[arc], dag2[arc]));
+            isSuccess = isSuccess && (!flg);
+        }
+
+        if (isSuccess) {
+            let newObj = {};
+            for (var arc of newed) {
+                newObj[arc] = dag1[arc];
+            }
+            if (Object.keys(newObj).length > 0) {
+                dag2['arcBinding'] = newObj;
+            }
+            return dag2;
+        }
+        return BOTTOM;
+    }
+*/
 function unifyTest(tl, tr) {
     console.log("#######################");
     reduceVars({ l: tl, r: tr });
@@ -194,6 +293,7 @@ let ttt1 = { t0: 'likes', t1: 'Sandy', t2: { Var: 'who12' } };
 let ttt2 = { t0: 'likes', t1: 'Kim', t2: 'Robin' };
 unifyTest(ttt1, ttt2);
 
+
 function a2t(a) {
     console.dir(a, { depth: 5 });
     let t = {};
@@ -233,15 +333,15 @@ function deepCopy(t) {
     return JSON.parse(JSON.stringify(t));
 }
 
-
+let PRVCOUNT = 0;
 function prove3(aQs, aCs, rs, results) {
-    let count = 0;
-    count++;
-    console.log("######################## CCCOUNT" + count);
+    PRVCOUNT++;
+    console.log("######################## PROVE COUNT" + PRVCOUNT);
+    //if (PRVCOUNT > 2) return [];
     if (aQs.length < 1) {
-        console.log("SUCCESS!!!!!!!");
+        //console.log("SUCCESS!!!!!!!");
         if (aCs.length > 0) {
-            console.dir(aCs, { depth: 5 });
+            //console.dir(aCs, { depth: 5 });
             results.push(aCs);
         }
         return true;
@@ -250,12 +350,15 @@ function prove3(aQs, aCs, rs, results) {
     let flg = false;
     for (let rule of rs) {
         let qs = deepCopy(aQs);
+        let cs = deepCopy(aCs);
+        reduceVars({ cs: cs, qs: qs });
         let q = qs[0];
         qs.shift();
-        let cs = deepCopy(aCs);
-        reduceVars({ cs: cs, q: q, qs: qs });
+
         let r = deepCopy(rule);
         reduceVarsWithRename(r);
+
+
         console.log("trying query");
         console.log(q);
         console.log("qs");
@@ -264,23 +367,26 @@ function prove3(aQs, aCs, rs, results) {
         console.log(cs);
         console.log("trying rule");
         console.log(r);
+
+
         let u = unify(q, r[0]);
+
         if (!isBottom(u)) {
-            console.log("unify!!!");
-            console.log(u);
+            console.log("unify!!!"); console.log(u);
             flg = true;
             r.shift();
             let tmpQ = r.concat(qs);
-            cs.push(u);
-            console.log("newQs");
-            console.log(tmpQ);
+
+            //cs.push(u);
+
+            cs.push(q);
+            console.log("newQs"); console.log(tmpQ);
 
             prove3(tmpQ, cs, rs, results);
         }
     }
     if (!flg) {
         console.log("FAILL!!!!!!!!!!!!!!!!");
-        //qss.shift();
     }
 }
 
@@ -300,11 +406,11 @@ let rule343 = [
     [["likes", "Sandy", "?x"], ["likes", "?x", "cats"]],
     [["likes", "Kim", "?x"], ["likes", "?x", "Lee"], ["likes", "?x", "Kim"]],
     [["likes", "?x", "?x"]]];
+let q3430 = [["likes", "Sandy", "Robin"]];
 let q343 = [["likes", "Sandy", "?who"]];
 let q3452 = [["likes", "?who", "Sandy"]];
 let q3453 = [["likes", "Robin", "LEE"]];
 let q3454 = [["likes", "?x", "?y"], ["likes", "?y", "?x"]];
-//let q343 = ["likes", "Sandy", "Robin"];
 
 function a2cons(a) {
     if (a.length < 1) return "NIL";
@@ -318,9 +424,10 @@ let rule338 = [
 //let q3393 = [{ t0: "member", t1: { Var: "x" }, t2: { car: "1", cdr: { car: "2", cdr: { car: "3", cdr: "NIL" } } } }];
 let q3393 = [{ t0: "member", t1: { Var: "x" }, t2: a2cons([1, 2, 3, 5, 7]) }];
 
-
-let rules = rule338;//a2rules(rule338);
-let query = q3393;//a2q(q3393);
+let rules = a2rules(rule343);
+let query = a2q(q3454);
+//let rules = rule338;//a2rules(rule338);
+//let query = q3393;//a2q(q3393);
 reduceVars(query);
 
 console.log(JSON.stringify(rules));
@@ -332,9 +439,17 @@ let RESULT = prove(query, rules);
 
 console.log("RESULT################# " + RESULT.length);
 for (let r of RESULT) {
-    console.dir(r, { depth: 5 });
+    console.log("###################################");
+    console.dir(r[0], { depth: 5 });
+    /*
     let vs = [];
     varsInTerm(r, vs);
     console.log(vs);
+    for (let v of vs) {
+        v['check'] = "OK";
+    }
+    console.log("After");
+    console.log(vs);
+    */
 }
 console.log("RESULT################# " + RESULT.length);

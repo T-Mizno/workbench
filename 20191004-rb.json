@@ -1,0 +1,166 @@
+{
+    "name": "ZOOKEEPER",
+    "doc": "Artificial Intelligence, 3rd ed., pp.121-124.",
+    "rules": [
+        {
+            "name": "Z1",
+            "if": [
+                "?x has hair"
+            ],
+            "then": [
+                "?x is a mammal"
+            ]
+        },
+        {
+            "name": "Z2",
+            "if": [
+                "?x gives milk"
+            ],
+            "then": [
+                "?x is a mammal"
+            ]
+        },
+        {
+            "name": "Z3",
+            "if": [
+                "?x has feathers"
+            ],
+            "then": [
+                "?x is a bird"
+            ]
+        },
+        {
+            "name": "Z4",
+            "if": [
+                "?x flies",
+                "?x lays eggs"
+            ],
+            "then": [
+                "?x is a bird"
+            ]
+        },
+        {
+            "name": "Z5",
+            "if": [
+                "?x is a mammal",
+                "?x eats meat"
+            ],
+            "then": [
+                "?x is a carnivore"
+            ]
+        },
+        {
+            "name": "Z6",
+            "if": [
+                "?x is a mammal",
+                "?x has pointed teeth",
+                "?x has claws",
+                "?x has forward-pointing eyes"
+            ],
+            "then": [
+                "?x is a carnivore"
+            ]
+        },
+        {
+            "name": "Z7",
+            "if": [
+                "?x is a mammal",
+                "?x has hoofs"
+            ],
+            "then": [
+                "?x is an ungulate"
+            ]
+        },
+        {
+            "name": "Z8",
+            "if": [
+                "?x is a mammal",
+                "?x chews cud"
+            ],
+            "then": [
+                "?x is an ungulate"
+            ]
+        },
+        {
+            "name": "Z9",
+            "if": [
+                "?x is a carnivore",
+                "?x has tawny color",
+                "?x has dark spots"
+            ],
+            "then": [
+                "?x is a cheetah"
+            ]
+        },
+        {
+            "name": "Z10",
+            "if": [
+                "?x is a carnivore",
+                "?x has tawny color",
+                "?x has black stripes"
+            ],
+            "then": [
+                "?x is a tiger"
+            ]
+        },
+        {
+            "name": "Z11",
+            "if": [
+                "?x is an ungulate",
+                "?x has long legs",
+                "?x has long neck",
+                "?x has tawny color",
+                "?x has dark spots"
+            ],
+            "then": [
+                "?x is a giraffe"
+            ]
+        },
+        {
+            "name": "Z12",
+            "if": [
+                "?x is an ungulate",
+                "?x has white color",
+                "?x has black stripes"
+            ],
+            "then": [
+                "?x is a zebra"
+            ]
+        },
+        {
+            "name": "Z13",
+            "if": [
+                "?x is a bird",
+                "?x does not fly",
+                "?x has long legs",
+                "?x has long neck",
+                "?x is black and white"
+            ],
+            "then": [
+                "?x is an ostrich"
+            ]
+        },
+        {
+            "name": "Z14",
+            "if": [
+                "?x is a bird",
+                "?x does not fly",
+                "?x swims",
+                "?x is black and white"
+            ],
+            "then": [
+                "?x is penguin"
+            ]
+        },
+        {
+            "name": "Z15",
+            "if": [
+                "?y is a bird",
+                "?y is a good flyer"
+            ],
+            "then": [
+                "?y is an albatross"
+            ]
+        }
+    ]
+}

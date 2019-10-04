@@ -1,0 +1,26 @@
+{
+    "name": "RETE",
+    "doc": "Artificial Intelligence, 3rd ed., p.138.",
+    "rules": [
+        {
+            "name": "Parent Rule",
+            "if": [
+                "?x is a horse",
+                "?x is a parent of ?y",
+                "?y is fast"
+            ],
+            "then": [
+                "?x is valuable"
+            ]
+        },
+        {
+            "name": "Winner Rule",
+            "if": [
+                "?x is a winner"
+            ],
+            "then": [
+                "?x is fast"
+            ]
+        }
+    ]
+}

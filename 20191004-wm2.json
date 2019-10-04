@@ -1,0 +1,15 @@
+{
+    "name": "RETE",
+    "doc": "Artificial Intelligence, 3rd ed., p.138",
+    "wm": [
+        "Comet is a horse",
+        "Prancer is a horse",
+        "Comet is a parent of Dasher",
+        "Comet is a parent of Prancer",
+        "Prancer is fast",
+        "Dasher is a parent of Thunder",
+        "Thunder is fast",
+        "Thunder is a horse",
+        "Dasher is a horse"
+    ]
+}

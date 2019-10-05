@@ -1,68 +1,20 @@
-
-// Rule and WM structure
-function jsonStr2RB(str) {
-    let rb = JSON.parse(str);
-    for (let r of rb["rules"]) {
-        let ifs = [];
-        for (let a of r["if"]) {
-            ifs.push(a.split(' '));
-        }
-        r["if"] = ifs;
-        let thens = [];
-        for (let a of r["then"]) {
-            thens.push(a.split(' '));
-        }
-        r["then"] = thens;
-    }
-    return rb;
-}
-
-
-function jsonStr2WM(str) {
-    let wm = JSON.parse(str);
-    let as = [];
-    for (let a of wm["wm"]) {
-        as.push(a.split(' '));
-    }
-    wm["wm"] = as;
-    return wm;
-}
-
-function strRB(aRB) {
-    let str = "name : " + aRB["name"] + "\n";
-    str += "doc : " + aRB["doc"] + "\n";
-    for (let r of aRB["rules"]) {
-        str += r["name"] + "\n";
-        str += "if\n";
-        for (let a of r["if"]) {
-            str += "     " + a + "\n"
-        }
-        str += "then\n";
-        for (let c of r["then"]) {
-            str += "     " + c + "\n"
-        }
-        str += "\n";
-    }
-    return str;
-}
-function strWM(aWM) {
-    let str = "name : " + aWM["name"] + "\n";
-    str += "doc : " + aWM["doc"] + "\n";
-    for (let a of aWM["wm"]) {
-        str += a + "\n";
-    }
-    return str;
-}
-
-
-
 function isVar(str) {
     return str.charAt(0) == '?';
 }
 
+function duplicates(xs, ys) {
+    let d = [];
+    for (let x of xs) {
+        let flgExistSame = false;
+        for (let y of ys) {
+            if (x == y) flgExistSame = flgExistSame || true;
+        }
+        if (flgExistSame) d.push(x);
+    }
+    return d;
+}
 
 // Construct RETE net
-
 // filter to alpha node
 function makeAlphaNode(f) {
     let vars = [];
@@ -83,7 +35,8 @@ function makeBetaNode(a1, a2) {
     for (let t of a2["attrs"]) {
         if (attrs.indexOf(t) < 0) attrs.push(t);
     }
-    return { "attrs": attrs, "tupples": [], "listeners": [] };
+    let dattrs = duplicates(a1["attrs"], a2["attrs"]);
+    return { "attrs": attrs, "dattrs": dattrs, "tupples": [], "listeners": [] };
 }
 
 function addFilter(af, fs) {
@@ -115,17 +68,19 @@ function matchAssertion(a1, a2, bindings) {
 
 function constructRETE(rb) {
     let filters = [];
-    //let alphaNodes = [];
+    let alphaNodes = [];
+    let betaNodes = [];
 
-    for (let i = 0; i < rb["rules"].length; i++) {
-        let r = rb["rules"][i];
+    for (let r of rb["rules"]) {
+
         let localAlpha = [];
+
         for (let a of r["if"]) {
             let f = addFilter(a, filters);
             let alpha = makeAlphaNode(f);
             f["listeners"].push(alpha);
             localAlpha.push(alpha);
-            //alphaNodes.push(alpha);
+            alphaNodes.push(alpha)
         }
 
         let localBeta = [];
@@ -140,6 +95,7 @@ function constructRETE(rb) {
             let b = localBeta[localBeta.length - 1];
             let newB = makeBetaNode(b, localAlpha[i]);
             localBeta.push(newB);
+            betaNodes.push(newB);
             localAlpha[i]["listeners"].push(newB);
             b["listeners"].push(newB);
 
@@ -148,10 +104,11 @@ function constructRETE(rb) {
         }
         localBeta[localBeta.length - 1]["triggerRule"] = r;
     }
-    return filters;
+    return { "filters": filters, "alphaNodes": alphaNodes, "betaNodes": betaNodes };
 }
 
 // Working RETE
+// a : one assertion, not assertions
 function throwAssertionToFilter(a, f, added) {
     if (a.length != f.length) return false;
     let bindings = {};
@@ -168,23 +125,15 @@ function throwAssertionToFilter(a, f, added) {
             if (f[i] != a[i]) return false;
         }
     }
-    for (let a of f["listeners"]) {
-        throwBindingsToAlpha(bindings, a, added);
+    for (let alpha of f["listeners"]) {
+        throwTuppleToAlpha(bindings, alpha, added);
     }
 }
 
-function throwBindingsToAlpha(b, a, added) {
-    for (let t of a["tupples"]) {
-        let flg = true;
-        for (let k of Object.keys(b)) {
-            if (!t[k]) {
-                flg = false;
-                break;
-            }
-            flg = flg && (t[k] == b[k]);
-        }
-        if (flg) return false;
-    }
+// b: a binding. b = {varName1: val, varName2:val2, ...}.
+function throwTuppleToAlpha(b, a, added) {
+    if (existsSameTupple(b, a["tupples"])) return false;
+
     a["tupples"].push(b);
 
     for (let beta of a["listeners"]) {
@@ -192,31 +141,29 @@ function throwBindingsToAlpha(b, a, added) {
     }
 }
 
-function duplicates(xs, ys) {
-    let d = [];
-    for (let x of xs) {
-        let flg = false;
-        for (let y of ys) {
-            if (x == y) flg = flg || true;
-        }
-        if (flg) d.push(x);
-    }
-    return d;
-}
-
 // add binding to table
-function addTuppleWithoutSame(newT, tupples) {
+// exist same tupple in Binding DB
+function existsSameTupple(newT, tupples) {
     for (let t of tupples) {
         let flgSame = true;
         for (let k of Object.keys(newT)) {
-            if (!t[k]) return false;
-            flgSame = flgSame && (t[k] == newT[k]);
+            if (!t[k]) {
+                flgSame = false;
+            }
+            else {
+                flgSame = flgSame && (t[k] == newT[k]);
+            }
         }
-        if (flgSame) return false;
+        if (flgSame) return true;
     }
+    return false;
+}
+function addTuppleUnlessSame(newT, tupples) {
+    if (existsSameTupple(newT, tupples)) return false;
     tupples.push(newT);
     return true;
 }
+
 function throwToBeta(b, added) {
     let l = b["left"];
     let r = b["right"];
@@ -224,13 +171,10 @@ function throwToBeta(b, added) {
 
     let beforeSize = b["tupples"].length;
 
-    b["tupples"] = [];
-
-    let dattrs = duplicates(l["attrs"], r["attrs"]);
     for (let lt of l["tupples"]) {
         for (let rt of r["tupples"]) {
             let flgSame = true;
-            for (let da of dattrs) {
+            for (let da of b["dattrs"]) {
                 flgSame = flgSame && (lt[da] == rt[da]);
             }
             if (flgSame) {
@@ -241,12 +185,10 @@ function throwToBeta(b, added) {
                 for (let ra of r["attrs"]) {
                     tupple[ra] = rt[ra];
                 }
-                addTuppleWithoutSame(tupple, b["tupples"]);
+                addTuppleUnlessSame(tupple, b["tupples"]);
             }
         }
     }
-
-
 
     if (b["tupples"].length > beforeSize) {
         if (b["triggerRule"]) {
@@ -259,7 +201,6 @@ function throwToBeta(b, added) {
             }
         }
     }
-
 }
 
 function makeActions(bindings, rule) {
@@ -284,33 +225,42 @@ function makeActions(bindings, rule) {
     return as;
 }
 
-function addAssertionsWithoutSame(newAs, assertions) {
-    for (let a of newAs) {
-        for (let a2 of assertions) {
-            if (a.length != a2.length) break;
+// check whether an assertion in working memory.
+function existsSameAssertion(newA, assertions) {
+    for (let a of assertions) {
+        if (a.length != newA.length) continue;
 
-            let flgSame = true;
-            for (let i = 0; i < a.length; i++) {
-                flgSame = flgSame && (a[i] == a2[i]);
-            }
-            if (flgSame) break;
+        let flgSame = true;
+        for (let i = 0; i < a.length; i++) {
+            flgSame = flgSame && (a[i] == newA[i]);
         }
-        assertions.push(a);
+        if (flgSame) return true;
     }
+    return false;
 }
 
-function runRETE(rb, wm, filters) {
+function addAssertionsUnlessSame(newAs, assertions) {
+    let flgAdded = false;
+    for (let a of newAs) {
+        if (existsSameAssertion(a, assertions)) continue;
+        flgAdded = flgAdded || true;
+        assertions.push(a);
+    }
+    return flgAdded;
+}
+
+function runRETE(rb, wm, rete) {
     while (true) {
         let beforeWMSize = wm["wm"].length;
         let added = [];
         for (let a of wm["wm"]) {
-            for (let f of filters) {
+            for (let f of rete["filters"]) {
                 throwAssertionToFilter(a, f, added);
             }
         }
 
         for (let act of added) {
-            addAssertionsWithoutSame(act, wm["wm"]);
+            addAssertionsUnlessSame(act, wm["wm"]);
         }
         if (wm["wm"].length <= beforeWMSize) break;
     }
@@ -329,22 +279,74 @@ for (let f of filters) {
             console.log(b);
         }
     }
-
 }
 */
 
+// Rule and WM structure
+function jsonStr2RB(str) {
+    let rb = JSON.parse(str);
+    for (let r of rb["rules"]) {
+        let ifs = [];
+        for (let a of r["if"]) {
+            ifs.push(a.split(' '));
+        }
+        r["if"] = ifs;
+        let thens = [];
+        for (let a of r["then"]) {
+            thens.push(a.split(' '));
+        }
+        r["then"] = thens;
+    }
+    return rb;
+}
+
+function jsonStr2WM(str) {
+    let wm = JSON.parse(str);
+    let as = [];
+    for (let a of wm["wm"]) {
+        as.push(a.split(' '));
+    }
+    wm["wm"] = as;
+    return wm;
+}
+
+function strRB(aRB) {
+    let str = "name : " + aRB["name"] + "\n";
+    str += "doc : " + aRB["doc"] + "\n";
+    for (let r of aRB["rules"]) {
+        str += r["name"] + "\n";
+        str += "if\n";
+        for (let a of r["if"]) {
+            str += "     " + a + "\n"
+        }
+        str += "then\n";
+        for (let c of r["then"]) {
+            str += "     " + c + "\n"
+        }
+        str += "\n";
+    }
+    return str;
+}
+
+function strWM(aWM) {
+    let str = "name : " + aWM["name"] + "\n";
+    str += "doc : " + aWM["doc"] + "\n";
+    for (let a of aWM["wm"]) {
+        str += "  " + a + "\n";
+    }
+    return str;
+}
 
 let fs = require("fs");
-let text = fs.readFileSync("./20191004-rb2.json");
+let text = fs.readFileSync("./20191005-rb3.json");
 let rulebase = jsonStr2RB(text);
 
-text = fs.readFileSync("./20191004-wm2.json");
+text = fs.readFileSync("./20191005-wm3.json");
 let workingMemory = jsonStr2WM(text);
 
 console.log(strRB(rulebase));
 console.log(strWM(workingMemory));
 
-
-let filters = constructRETE(rulebase);
-runRETE(rulebase, workingMemory, filters);
+let rete = constructRETE(rulebase);
+runRETE(rulebase, workingMemory, rete);
 console.log(workingMemory["wm"]);

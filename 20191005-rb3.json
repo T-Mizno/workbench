@@ -1,0 +1,52 @@
+{
+    "name": "TEST",
+    "doc": "cats",
+    "rules": [
+        {
+            "name": "cat1",
+            "if": [
+                "?x likes cats"
+            ],
+            "then": [
+                "Sandy likes ?x"
+            ]
+        },
+        {
+            "name": "cat2",
+            "if": [
+                "?x likes Lee",
+                "?x likes Kim"
+            ],
+            "then": [
+                "Kim likes ?x"
+            ]
+        },
+        {
+            "name": "cat3",
+            "if": [
+                "?x likes ?y"
+            ],
+            "then": [
+                "?x likes ?x"
+            ]
+        },
+        {
+            "name": "q1",
+            "if": [
+                "Sandy likes ?who"
+            ],
+            "then": [
+                "?who is the person of Q1"
+            ]
+        },
+        {
+            "name": "q2",
+            "if": [
+                "?who likes Sandy"
+            ],
+            "then": [
+                "?who is the person of Q2"
+            ]
+        }
+    ]
+}

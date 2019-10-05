@@ -1,0 +1,10 @@
+{
+    "name": "wm",
+    "doc": "Artificial Intelligence, 3rd ed., pp.124",
+    "wm": [
+        "Kim likes Robin",
+        "Sandy likes Lee",
+        "Sandy likes Kim",
+        "Robin likes cats"
+    ]
+}

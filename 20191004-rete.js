@@ -15,30 +15,7 @@ function duplicates(xs, ys) {
 }
 
 // Construct RETE net
-// filter to alpha node
-function makeAlphaNode(f) {
-    let vars = [];
-    for (let t of f) {
-        if (isVar(t)) {
-            if (vars.indexOf(t) < 0) vars.push(t);
-        }
-    }
-    return { "attrs": vars, "tupples": [], "listeners": [] };
-}
-
-// alpha to beta
-function makeBetaNode(a1, a2) {
-    let attrs = [];
-    for (let t of a1["attrs"]) {
-        attrs.push(t);
-    }
-    for (let t of a2["attrs"]) {
-        if (attrs.indexOf(t) < 0) attrs.push(t);
-    }
-    let dattrs = duplicates(a1["attrs"], a2["attrs"]);
-    return { "attrs": attrs, "dattrs": dattrs, "tupples": [], "listeners": [] };
-}
-
+// filter
 function addFilter(af, fs) {
     for (let f of fs) {
         if (f.length != af.length) continue;
@@ -54,17 +31,29 @@ function addFilter(af, fs) {
     newF["listeners"] = [];
     return newF;
 }
-
-/*
-// a1 may contains variable, a2 must not contain variable.
-function matchAssertion(a1, a2, bindings) {
-    if (a1.length != a2.length) return false;
-    for (let i = 0; i < a1.length; i++) {
-        if (!matchTerm(a1[i], a2[i], bindings)) return false;
+// alpha node
+function makeAlphaNode(f) {
+    let vars = [];
+    for (let t of f) {
+        if (isVar(t)) {
+            if (vars.indexOf(t) < 0) vars.push(t);
+        }
     }
-    return true;
+    return { "attrs": vars, "tupples": [], "listeners": [], "newComming": [], "isUpdated": false };
 }
-*/
+// beta node from two alpha nodes
+function makeBetaNode(a1, a2) {
+    let attrs = [];
+    for (let t of a1["attrs"]) {
+        attrs.push(t);
+    }
+    for (let t of a2["attrs"]) {
+        if (attrs.indexOf(t) < 0) attrs.push(t);
+    }
+    let dattrs = duplicates(a1["attrs"], a2["attrs"]);
+    return { "attrs": attrs, "dattrs": dattrs, "tupples": [], "newComming": [], "listeners": [], "isUpdated": false };
+}
+
 
 function constructRETE(rb) {
     let filters = [];
@@ -125,20 +114,26 @@ function throwAssertionToFilter(a, f, added) {
             if (f[i] != a[i]) return false;
         }
     }
+
+    if (Object.keys(f).length <= 0) bindings["NO-VAR"] = "NO-VAR";
+
     for (let alpha of f["listeners"]) {
         throwTuppleToAlpha(bindings, alpha, added);
     }
 }
 
-// b: a binding. b = {varName1: val, varName2:val2, ...}.
+// b: one binding. b = {varName1: val, varName2:val2, ...}.
 function throwTuppleToAlpha(b, a, added) {
     if (existsSameTupple(b, a["tupples"])) return false;
 
     a["tupples"].push(b);
+    a["newComming"] = [b];
 
+    a["isUpdated"] = true;
     for (let beta of a["listeners"]) {
         throwToBeta(beta, added);
     }
+    a["isUpdated"] = false;
 }
 
 // add binding to table
@@ -165,16 +160,20 @@ function addTuppleUnlessSame(newT, tupples) {
 }
 
 function throwToBeta(b, added) {
-    let l = b["left"];
-    let r = b["right"];
-    if (!(l || r)) return false;
+    let l; // updated alpha
+    let r; // another alpha
 
-    let beforeSize = b["tupples"].length;
+    if (b["left"]["isUpdated"]) { l = b["left"]; r = b["right"]; }
+    else { l = b["right"]; r = b["left"]; }
 
-    for (let lt of l["tupples"]) {
-        for (let rt of r["tupples"]) {
+    if (!(l && r)) return false;
+
+    let newComming = []; // tuples added
+
+    for (let lt of l["newComming"]) {  // for each tupple
+        for (let rt of r["tupples"]) {  // for each tupple
             let flgSame = true;
-            for (let da of b["dattrs"]) {
+            for (let da of b["dattrs"]) { // for each term
                 flgSame = flgSame && (lt[da] == rt[da]);
             }
             if (flgSame) {
@@ -185,12 +184,18 @@ function throwToBeta(b, added) {
                 for (let ra of r["attrs"]) {
                     tupple[ra] = rt[ra];
                 }
-                addTuppleUnlessSame(tupple, b["tupples"]);
+                let added = addTuppleUnlessSame(tupple, b["tupples"]);
+                if (added) {
+                    newComming.push(tupple);
+                    b["isUpdated"] = true;
+                }
             }
         }
     }
 
-    if (b["tupples"].length > beforeSize) {
+    b["newComming"] = newComming;
+
+    if (b["isUpdated"]) {
         if (b["triggerRule"]) {
             let acts = makeActions(b["tupples"], b["triggerRule"]);
             added.push(acts);
@@ -201,6 +206,7 @@ function throwToBeta(b, added) {
             }
         }
     }
+    b["isUpdated"] = false;
 }
 
 function makeActions(bindings, rule) {
@@ -261,26 +267,12 @@ function runRETE(rb, wm, rete) {
 
         for (let act of added) {
             addAssertionsUnlessSame(act, wm["wm"]);
+            //console.log(wm["wm"]);
         }
+
         if (wm["wm"].length <= beforeWMSize) break;
     }
 }
-
-
-/*
-for (let f of filters) {
-    console.log("Filters:");
-    console.log(f);
-    for (let a of f["listeners"]) {
-        console.log("Alphas");
-        console.log(a);
-        for (let b of a["listeners"]) {
-            console.log("Betas");
-            console.log(b);
-        }
-    }
-}
-*/
 
 // Rule and WM structure
 function jsonStr2RB(str) {
@@ -338,10 +330,10 @@ function strWM(aWM) {
 }
 
 let fs = require("fs");
-let text = fs.readFileSync("./20191005-rb3.json");
+let text = fs.readFileSync("./20191004-rb.json");
 let rulebase = jsonStr2RB(text);
 
-text = fs.readFileSync("./20191005-wm3.json");
+text = fs.readFileSync("./20191004-wm.json");
 let workingMemory = jsonStr2WM(text);
 
 console.log(strRB(rulebase));

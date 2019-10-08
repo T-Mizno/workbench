@@ -31,12 +31,21 @@
             ]
         },
         {
+            "name": "cat3",
+            "if": [
+                "?x likes ?y"
+            ],
+            "then": [
+                "?y likes ?y"
+            ]
+        },
+        {
             "name": "q1",
             "if": [
                 "Sandy likes ?who"
             ],
             "then": [
-                "?who is the person of Q1"
+                "?who is the answer of Q1"
             ]
         },
         {
@@ -45,7 +54,7 @@
                 "?who likes Sandy"
             ],
             "then": [
-                "?who is the person of Q2"
+                "?who is the answer of Q2"
             ]
         }
     ]

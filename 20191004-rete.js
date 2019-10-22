@@ -16,15 +16,19 @@ function duplicates(xs, ys) {
 
 // Construct RETE net
 // filter
+function isSameAssertion(a, f) {
+    if (a.length != f.length) return false;
+    let flgSame = true;
+    for (let i = 0; i < a.length; i++) {
+        flgSame = flgSame && (f[i] == a[i]);
+    }
+    return flgSame;
+}
 function addFilter(af, fs) {
     for (let f of fs) {
-        if (f.length != af.length) continue;
-        let flg = true;
-        for (let i = 0; i < f.length; i++) {
-            flg = flg && (f[i] == af[i]);
-        }
-        if (flg) return f;
+        if (isSameAssertion(af, fs)) return f;
     }
+
     let newF = [];
     for (let t of af) newF.push(t);
     fs.push(newF);
@@ -32,14 +36,14 @@ function addFilter(af, fs) {
     return newF;
 }
 // alpha node
-function makeAlphaNode(f) {
+function makeAlphaNode(f, name) {
     let vars = [];
     for (let t of f) {
         if (isVar(t)) {
             if (vars.indexOf(t) < 0) vars.push(t);
         }
     }
-    return { "attrs": vars, "tupples": [], "listeners": [], "newComming": [], "isUpdated": false };
+    return { "name": name, "attrs": vars, "tupples": [], "listeners": [], "newComming": [], "isUpdated": false };
 }
 // beta node from two alpha nodes
 function makeBetaNode(a1, a2) {
@@ -51,9 +55,13 @@ function makeBetaNode(a1, a2) {
         if (attrs.indexOf(t) < 0) attrs.push(t);
     }
     let dattrs = duplicates(a1["attrs"], a2["attrs"]);
-    return { "attrs": attrs, "dattrs": dattrs, "tupples": [], "newComming": [], "listeners": [], "isUpdated": false };
+    return { "name": "(" + a1["name"] + "-" + a2["name"] + ")", "attrs": attrs, "dattrs": dattrs, "tupples": [], "newComming": [], "listeners": [], "isUpdated": false };
 }
-
+function clearNode(n) {
+    n["tupples"] = [];
+    n["newComming"] = [];
+    n["isUpdated"] = false;
+}
 
 function constructRETE(rb) {
     let filters = [];
@@ -64,9 +72,11 @@ function constructRETE(rb) {
 
         let localAlpha = [];
 
-        for (let a of r["if"]) {
+        for (let i = 0; i < r["if"].length; i++) {
+            //for (let a of r["if"]) {
+            let a = r["if"][i];
             let f = addFilter(a, filters);
-            let alpha = makeAlphaNode(f);
+            let alpha = makeAlphaNode(f, r["name"] + i);
             f["listeners"].push(alpha);
             localAlpha.push(alpha);
             alphaNodes.push(alpha)
@@ -79,6 +89,7 @@ function constructRETE(rb) {
         b["right"] = localAlpha[0];
         localAlpha[0]["listeners"].push(b);
         localBeta.push(b);
+        betaNodes.push(b);
 
         for (let i = 1; i < localAlpha.length; i++) {
             let b = localBeta[localBeta.length - 1];
@@ -115,7 +126,7 @@ function throwAssertionToFilter(a, f, added) {
         }
     }
 
-    if (Object.keys(f).length <= 0) bindings["NO-VAR"] = "NO-VAR";
+    if (Object.keys(bindings).length <= 0) bindings["NO-VAR"] = "NO-VAR";
 
     for (let alpha of f["listeners"]) {
         throwTuppleToAlpha(bindings, alpha, added);
@@ -124,12 +135,14 @@ function throwAssertionToFilter(a, f, added) {
 
 // b: one binding. b = {varName1: val, varName2:val2, ...}.
 function throwTuppleToAlpha(b, a, added) {
+
     if (existsSameTupple(b, a["tupples"])) return false;
 
     a["tupples"].push(b);
     a["newComming"] = [b];
 
     a["isUpdated"] = true;
+
     for (let beta of a["listeners"]) {
         throwToBeta(beta, added);
     }
@@ -184,14 +197,15 @@ function throwToBeta(b, added) {
                 for (let ra of r["attrs"]) {
                     tupple[ra] = rt[ra];
                 }
-                let added = addTuppleUnlessSame(tupple, b["tupples"]);
-                if (added) {
+                let flgAdded = addTuppleUnlessSame(tupple, b["tupples"]);
+                if (flgAdded) {
                     newComming.push(tupple);
                     b["isUpdated"] = true;
                 }
             }
         }
     }
+
 
     b["newComming"] = newComming;
 
@@ -207,6 +221,28 @@ function throwToBeta(b, added) {
         }
     }
     b["isUpdated"] = false;
+}
+
+function isBuiltIn(a) {
+    if (a.length == 3) {
+        return a[1] == '>';
+    }
+    return false;
+}
+function getIntVal(binding, str) {
+    if (isVar(str)) {
+        return parseInt(binding[str]);
+    }
+    return parseInt(str);
+}
+function checkBuildIn(binding, builtIn) {
+    if ((builtIn.length == 3) && (builtIn[1] == '>')) {
+        let l = getIntVal(builtIn[0]);
+        let r = getIntVal(builtIn[2]);
+        if (isNaN(l) || isNaN(r)) return false;
+        return l > r;
+    }
+    return false;
 }
 
 function makeActions(bindings, rule) {
@@ -228,7 +264,7 @@ function makeActions(bindings, rule) {
             as.push(newA);
         }
     }
-    return as;
+    return { "actions": as, "rule": rule };
 }
 
 // check whether an assertion in working memory.
@@ -244,33 +280,109 @@ function existsSameAssertion(newA, assertions) {
     }
     return false;
 }
-
+function addOneAssertionUnlessSame(a, assertions) {
+    if (existsSameAssertion(a, assertions)) return false;
+    assertions.push(a);
+    return true;
+}
+/*
 function addAssertionsUnlessSame(newAs, assertions) {
     let flgAdded = false;
     for (let a of newAs) {
-        if (existsSameAssertion(a, assertions)) continue;
-        flgAdded = flgAdded || true;
-        assertions.push(a);
+        let flg = addOneAssertionUnlessSame(a, assertions);
+        flgAdded = flgAdded || flg; // ↑の手続きをショートカットされないように
     }
     return flgAdded;
+}
+*/
+function deleteAssertion(delA, assertions) {
+    for (let i = assertions.length - 1; i >= 0; i--) {
+        if (isSameAssertion(delA, assertions[i])) {
+            assertions.splice(i, 1);
+            return true;
+        }
+    }
+    return false;
+}
+function doActs(acts, assertions) {
+    for (let action of acts) {
+        if (action.length == 1) {
+            addOneAssertionUnlessSame(action, assertions);
+            continue;
+        }
+        if (action[0] == 'delete') {
+            deleteAssertion(action.slice(1), assertions);
+            continue;
+        }
+        if (action[0] == 'add') {
+            addOneAssertionUnlessSame(action.slice(1), assertions);
+            continue;
+        }
+        addOneAssertionUnlessSame(action, assertions);
+    }
 }
 
 function runRETE(rb, wm, rete) {
     while (true) {
         let beforeWMSize = wm["wm"].length;
-        let added = [];
+        let triggeredRules = [];
+
         for (let a of wm["wm"]) {
             for (let f of rete["filters"]) {
-                throwAssertionToFilter(a, f, added);
+                throwAssertionToFilter(a, f, triggeredRules);
             }
         }
 
-        for (let act of added) {
-            addAssertionsUnlessSame(act, wm["wm"]);
-            //console.log(wm["wm"]);
+        if (triggeredRules.length > 0) {
+            console.log("Fired rules are:")
+            for (let rule of triggeredRules) {
+                console.log("   " + rule["rule"]["name"]);
+                doActs(rule["actions"], wm["wm"]);
+            }
+        }
+        else {
+            console.log("There is no triggered rule.");
+            break;
         }
 
-        if (wm["wm"].length <= beforeWMSize) break;
+        if (existsSameAssertion(["DONE"], wm["wm"])) break;
+    }
+}
+
+function runRETEReactionMode(rb, wm, rete) {
+    while (true) {
+        let beforeWMSize = wm["wm"].length;
+        let triggeredRules = [];
+
+        for (let a of wm["wm"]) {
+            for (let f of rete["filters"]) {
+                throwAssertionToFilter(a, f, triggeredRules);
+            }
+        }
+
+        if (triggeredRules.length > 0) {
+            console.log("Triggered rules are:")
+            for (let rule of triggeredRules) {
+                console.log("   " + rule["rule"]["name"]);
+            }
+            // solve conflict
+            let firedRule = triggeredRules[triggeredRules.length - 1];
+            //console.log(firedRule);
+            console.log("Fired rule is : " + firedRule["rule"]["name"]);
+            doActs(firedRule["actions"], wm["wm"]);
+        }
+        else {
+            console.log("There is no triggered rule.");
+            break;
+        }
+
+        if (existsSameAssertion(["DONE"], wm["wm"])) break;
+
+        //if (wm["wm"].length <= beforeWMSize) break;
+
+        // for reaction mode
+        for (let a of rete["alphaNodes"]) clearNode(a);
+        for (let b of rete["betaNodes"]) clearNode(b);
     }
 }
 
@@ -279,16 +391,27 @@ function jsonStr2RB(str) {
     let rb = JSON.parse(str);
     for (let r of rb["rules"]) {
         let ifs = [];
+        let builtIns = [];
         for (let a of r["if"]) {
             ifs.push(a.split(' '));
         }
+        //for builtIn
+        for (let i = ifs.length - 1; i >= 0; i--) {
+            if (isBuiltIn(ifs[i])) {
+                builtIns.push(ifs[i]);
+                ifs.splice(i, 1);
+            }
+        }
         r["if"] = ifs;
+        r["if-built-in"] = builtIns;
+
         let thens = [];
         for (let a of r["then"]) {
             thens.push(a.split(' '));
         }
         r["then"] = thens;
     }
+
     return rb;
 }
 
@@ -311,6 +434,10 @@ function strRB(aRB) {
         for (let a of r["if"]) {
             str += "     " + a + "\n"
         }
+        str += "if-built-in\n";
+        for (let a of r["if-built-in"]) {
+            str += "     " + a + "\n"
+        }
         str += "then\n";
         for (let c of r["then"]) {
             str += "     " + c + "\n"
@@ -330,15 +457,16 @@ function strWM(aWM) {
 }
 
 let fs = require("fs");
-let text = fs.readFileSync("./20191004-rb.json");
+let text = fs.readFileSync("./20191009-rb8.json");
 let rulebase = jsonStr2RB(text);
 
-text = fs.readFileSync("./20191004-wm.json");
+text = fs.readFileSync("./20191009-wm8.json");
 let workingMemory = jsonStr2WM(text);
 
 console.log(strRB(rulebase));
 console.log(strWM(workingMemory));
 
 let rete = constructRETE(rulebase);
-runRETE(rulebase, workingMemory, rete);
+//runRETE(rulebase, workingMemory, rete);
+runRETEReactionMode(rulebase, workingMemory, rete);
 console.log(workingMemory["wm"]);

@@ -1,0 +1,86 @@
+{
+    "name": "banana",
+    "doc": "ピーター・ノーヴィグ; 杉本 訳: 実用Common Lisp, p.125.",
+    "rules": [
+        {
+            "name": "climb on chair",
+            "if": [
+                "chair at middle room",
+                "at middle room",
+                "on floor"
+            ],
+            "then": [
+                "add at bananas",
+                "add on chair",
+                "delete at middle room",
+                "delete on floor"
+            ]
+        },
+        {
+            "name": "push chair from door to middle room",
+            "if": [
+                "chair at door",
+                "at door"
+            ],
+            "then": [
+                "add chair at middle room",
+                "add at middle room",
+                "delete chair at door",
+                "delete at door"
+            ]
+        },
+        {
+            "name": "walk from door to middle room",
+            "if": [
+                "at door",
+                "on floor"
+            ],
+            "then": [
+                "add at middle room",
+                "delete at door"
+            ]
+        },
+        {
+            "name": "grasp bananas",
+            "if": [
+                "at bananas",
+                "empty handed"
+            ],
+            "then": [
+                "add has bananas",
+                "delete empty handed"
+            ]
+        },
+        {
+            "name": "drop ball",
+            "if": [
+                "has ball"
+            ],
+            "then": [
+                "add empty handed",
+                "delete has ball"
+            ]
+        },
+        {
+            "name": "eat bananas",
+            "if": [
+                "has bananas"
+            ],
+            "then": [
+                "add empty handed",
+                "add not hungry",
+                "delete has bananas",
+                "delete hungry"
+            ]
+        },
+        {
+            "name": "Goal",
+            "if": [
+                "not hungry"
+            ],
+            "then": [
+                "add DONE"
+            ]
+        }
+    ]
+}

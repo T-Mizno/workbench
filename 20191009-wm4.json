@@ -1,0 +1,13 @@
+{
+    "name": "wm",
+    "doc": "Artificial Intelligence, 3rd ed., pp.133",
+    "wm": [
+        "step is check-oder",
+        "bag1 is a bag",
+        "bread is to be bagged",
+        "glop is to be bagged",
+        "granola is to be bagged",
+        "ice cream is to be bagged",
+        "potato chips are to be bagged"
+    ]
+}

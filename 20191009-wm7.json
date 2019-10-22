@@ -1,0 +1,10 @@
+{
+    "name": "wm",
+    "doc": "ピーター・ノーヴィグ; 杉本 訳: 実用Common Lisp, p.111.",
+    "wm": [
+        "son at home",
+        "car needs battery",
+        "have money",
+        "have phone book"
+    ]
+}

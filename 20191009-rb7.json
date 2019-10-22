@@ -1,0 +1,74 @@
+{
+    "name": "GPS",
+    "doc": "ピーター・ノーヴィグ; 杉本 訳: 実用Common Lisp, pp.110-111.",
+    "rules": [
+        {
+            "name": "drive son to school",
+            "if": [
+                "son at home",
+                "car works"
+            ],
+            "then": [
+                "add son at school",
+                "delete son at home"
+            ]
+        },
+        {
+            "name": "shop installs battery",
+            "if": [
+                "car needs battery",
+                "shop knows problem",
+                "shop has money"
+            ],
+            "then": [
+                "add car works"
+            ]
+        },
+        {
+            "name": "tell shop problem",
+            "if": [
+                "in communication with shop"
+            ],
+            "then": [
+                "add shop knows problem"
+            ]
+        },
+        {
+            "name": "telephone shop",
+            "if": [
+                "know phone number"
+            ],
+            "then": [
+                "add in communication with shop"
+            ]
+        },
+        {
+            "name": "look up number",
+            "if": [
+                "have phone book"
+            ],
+            "then": [
+                "know phone number"
+            ]
+        },
+        {
+            "name": "give shop money",
+            "if": [
+                "have money"
+            ],
+            "then": [
+                "add shop has money",
+                "delete have money"
+            ]
+        },
+        {
+            "name": "Goal",
+            "if": [
+                "son at school"
+            ],
+            "then": [
+                "add DONE"
+            ]
+        }
+    ]
+}

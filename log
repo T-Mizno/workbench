@@ -1,0 +1,231 @@
+name : GPS
+doc : ピーター・ノーヴィグ; 杉本 訳: 実用Common Lisp, pp.110-111.
+drive son to school
+if
+     son,at,home
+     car,works
+if-built-in
+then
+     add,son,at,school
+     delete,son,at,home
+
+shop installs battery
+if
+     car,needs,battery
+     shop,knows,problem
+     shop,has,money
+if-built-in
+then
+     add,car,works
+
+tell shop problem
+if
+     in,communication,with,shop
+if-built-in
+then
+     add,shop,knows,problem
+
+telephone shop
+if
+     know,phone,number
+if-built-in
+then
+     add,in,communication,with,shop
+
+look up number
+if
+     have,phone,book
+if-built-in
+then
+     know,phone,number
+
+give shop money
+if
+     have,money
+if-built-in
+then
+     add,shop,has,money
+     delete,have,money
+
+Goal
+if
+     have,money
+     son,at,school
+if-built-in
+then
+     add,DONE
+
+
+name : wm
+doc : ピーター・ノーヴィグ; 杉本 訳: 実用Common Lisp, pp.110-111.
+  son,at,home
+  car,needs,battery
+  have,money
+  have,phone,book
+
+Through  son,at,home
+Through  car,needs,battery
+Through  have,money
+TRIGGERED
+{ name: 'give shop money',
+  if: [ [ 'have', 'money' ] ],
+  then:
+   [ [ 'add', 'shop', 'has', 'money' ],
+     [ 'delete', 'have', 'money' ] ],
+  'if-built-in': [] }
+Through  have,money
+Through  have,phone,book
+TRIGGERED
+{ name: 'look up number',
+  if: [ [ 'have', 'phone', 'book' ] ],
+  then: [ [ 'know', 'phone', 'number' ] ],
+  'if-built-in': [] }
+EXECUTING give shop money
+EXECUTING look up number
+[ [ 'son', 'at', 'home' ],
+  [ 'car', 'needs', 'battery' ],
+  [ 'have', 'phone', 'book' ],
+  [ 'shop', 'has', 'money' ],
+  [ 'know', 'phone', 'number' ] ]
+Through  son,at,home
+Through  car,needs,battery
+Through  have,phone,book
+Through  shop,has,money
+Through  know,phone,number
+TRIGGERED
+{ name: 'telephone shop',
+  if: [ [ 'know', 'phone', 'number' ] ],
+  then: [ [ 'add', 'in', 'communication', 'with', 'shop' ] ],
+  'if-built-in': [] }
+EXECUTING telephone shop
+[ [ 'son', 'at', 'home' ],
+  [ 'car', 'needs', 'battery' ],
+  [ 'have', 'phone', 'book' ],
+  [ 'shop', 'has', 'money' ],
+  [ 'know', 'phone', 'number' ],
+  [ 'in', 'communication', 'with', 'shop' ] ]
+Through  son,at,home
+Through  car,needs,battery
+Through  have,phone,book
+Through  shop,has,money
+Through  know,phone,number
+Through  in,communication,with,shop
+TRIGGERED
+{ name: 'tell shop problem',
+  if: [ [ 'in', 'communication', 'with', 'shop' ] ],
+  then: [ [ 'add', 'shop', 'knows', 'problem' ] ],
+  'if-built-in': [] }
+EXECUTING tell shop problem
+[ [ 'son', 'at', 'home' ],
+  [ 'car', 'needs', 'battery' ],
+  [ 'have', 'phone', 'book' ],
+  [ 'shop', 'has', 'money' ],
+  [ 'know', 'phone', 'number' ],
+  [ 'in', 'communication', 'with', 'shop' ],
+  [ 'shop', 'knows', 'problem' ] ]
+Through  son,at,home
+Through  car,needs,battery
+Through  have,phone,book
+Through  shop,has,money
+Through  know,phone,number
+Through  in,communication,with,shop
+Through  shop,knows,problem
+TRIGGERED
+{ name: 'shop installs battery',
+  if:
+   [ [ 'car', 'needs', 'battery' ],
+     [ 'shop', 'knows', 'problem' ],
+     [ 'shop', 'has', 'money' ] ],
+  then: [ [ 'add', 'car', 'works' ] ],
+  'if-built-in': [] }
+EXECUTING shop installs battery
+[ [ 'son', 'at', 'home' ],
+  [ 'car', 'needs', 'battery' ],
+  [ 'have', 'phone', 'book' ],
+  [ 'shop', 'has', 'money' ],
+  [ 'know', 'phone', 'number' ],
+  [ 'in', 'communication', 'with', 'shop' ],
+  [ 'shop', 'knows', 'problem' ],
+  [ 'car', 'works' ] ]
+Through  son,at,home
+Through  car,needs,battery
+Through  have,phone,book
+Through  shop,has,money
+Through  know,phone,number
+Through  in,communication,with,shop
+Through  shop,knows,problem
+TRIGGERED
+{ name: 'shop installs battery',
+  if:
+   [ [ 'car', 'needs', 'battery' ],
+     [ 'shop', 'knows', 'problem' ],
+     [ 'shop', 'has', 'money' ] ],
+  then: [ [ 'add', 'car', 'works' ] ],
+  'if-built-in': [] }
+Through  car,works
+TRIGGERED
+{ name: 'drive son to school',
+  if: [ [ 'son', 'at', 'home' ], [ 'car', 'works' ] ],
+  then:
+   [ [ 'add', 'son', 'at', 'school' ],
+     [ 'delete', 'son', 'at', 'home' ] ],
+  'if-built-in': [] }
+EXECUTING shop installs battery
+EXECUTING drive son to school
+[ [ 'car', 'needs', 'battery' ],
+  [ 'have', 'phone', 'book' ],
+  [ 'shop', 'has', 'money' ],
+  [ 'know', 'phone', 'number' ],
+  [ 'in', 'communication', 'with', 'shop' ],
+  [ 'shop', 'knows', 'problem' ],
+  [ 'car', 'works' ],
+  [ 'son', 'at', 'school' ] ]
+Through  car,needs,battery
+Through  have,phone,book
+Through  shop,has,money
+Through  know,phone,number
+Through  in,communication,with,shop
+Through  shop,knows,problem
+TRIGGERED
+{ name: 'shop installs battery',
+  if:
+   [ [ 'car', 'needs', 'battery' ],
+     [ 'shop', 'knows', 'problem' ],
+     [ 'shop', 'has', 'money' ] ],
+  then: [ [ 'add', 'car', 'works' ] ],
+  'if-built-in': [] }
+Through  car,works
+TRIGGERED
+{ name: 'drive son to school',
+  if: [ [ 'son', 'at', 'home' ], [ 'car', 'works' ] ],
+  then:
+   [ [ 'add', 'son', 'at', 'school' ],
+     [ 'delete', 'son', 'at', 'home' ] ],
+  'if-built-in': [] }
+Through  son,at,school
+TRIGGERED
+{ name: 'Goal',
+  if: [ [ 'have', 'money' ], [ 'son', 'at', 'school' ] ],
+  then: [ [ 'add', 'DONE' ] ],
+  'if-built-in': [] }
+EXECUTING shop installs battery
+EXECUTING drive son to school
+EXECUTING Goal
+[ [ 'car', 'needs', 'battery' ],
+  [ 'have', 'phone', 'book' ],
+  [ 'shop', 'has', 'money' ],
+  [ 'know', 'phone', 'number' ],
+  [ 'in', 'communication', 'with', 'shop' ],
+  [ 'shop', 'knows', 'problem' ],
+  [ 'car', 'works' ],
+  [ 'son', 'at', 'school' ],
+  [ 'DONE' ] ]
+[ [ 'car', 'needs', 'battery' ],
+  [ 'have', 'phone', 'book' ],
+  [ 'shop', 'has', 'money' ],
+  [ 'know', 'phone', 'number' ],
+  [ 'in', 'communication', 'with', 'shop' ],
+  [ 'shop', 'knows', 'problem' ],
+  [ 'car', 'works' ],
+  [ 'son', 'at', 'school' ],
+  [ 'DONE' ] ]

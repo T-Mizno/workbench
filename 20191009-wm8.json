@@ -1,0 +1,11 @@
+{
+    "name": "wm",
+    "doc": "ピーター・ノーヴィグ; 杉本 訳: 実用Common Lisp, p.126.",
+    "wm": [
+        "at door",
+        "on floor",
+        "has ball",
+        "hungry",
+        "chair at door"
+    ]
+}

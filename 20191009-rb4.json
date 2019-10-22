@@ -1,0 +1,161 @@
+{
+    "name": "BAGGER",
+    "doc": "Artificial Intelligence, 3rd ed., pp.133-137.",
+    "rules": [
+        {
+            "name": "B1",
+            "if": [
+                "step is check-order",
+                "potato chips are to be bagged",
+                "there is no Pepsi to be bagged"
+            ],
+            "then": [
+                "ask the customer whether he would like a bottle of Pepsi"
+            ]
+        },
+        {
+            "name": "B2",
+            "if": [
+                "step is check-order"
+            ],
+            "then": [
+                "delete step is check-order",
+                "add step is bag-large-items"
+            ]
+        },
+        {
+            "name": "B3",
+            "if": [
+                "step is bag-large-items",
+                "a large item is to be bagged",
+                "the large item is a bottle",
+                "the current bag contains ?x large items",
+                "6 > ?x"
+            ],
+            "then": [
+                "delete the large item is to be bagged",
+                "add the large item is in the current bag"
+            ]
+        },
+        {
+            "name": "B4",
+            "if": [
+                "step is bag-large-items",
+                "a large item is to be bagged",
+                "the current bag contains ?x large items",
+                "6 > ?x"
+            ],
+            "then": [
+                "delete the large item is to be bagged",
+                "add the large item is in the current bag"
+            ]
+        },
+        {
+            "name": "B5",
+            "if": [
+                "step is bag-large-items",
+                "a large item is to be bagged",
+                "an empty bag is available"
+            ],
+            "then": [
+                "delete the current bag is the current bag",
+                "add the empty bag is the current bag"
+            ]
+        },
+        {
+            "name": "B6",
+            "if": [
+                "step is bag-large-items"
+            ],
+            "then": [
+                "delete step is bag-large-items",
+                "add step is bag-medium-items"
+            ]
+        },
+        {
+            "name": "B7",
+            "if": [
+                "step is bag-medium-items",
+                "a medium item is frozen, but not in a freezer bag",
+            ],
+            "then": [
+                "delete the medium item is not in a freezer bag",
+                "add the medium item is in a freeaer bag"
+            ]
+        },
+        {
+            "name": "B8",
+            "if": [
+                "step is bag-medium-items",
+                "a medium item is to be bagged",
+                "the current bag is empty or contains only medium items",
+                "the current bag contains no large items",
+                "the current bag contains ?x medium items",
+                "12 > ?x"
+            ],
+            "then": [
+                "delete the medium is to be bagged",
+                "add the medium item is in the current bag"
+            ]
+        },
+        {
+            "name": "B9",
+            "if": [
+                "step is bag-medium-items",
+                "a medium item is to be bagged",
+                "an empty bag is available"
+            ],
+            "then": [
+                "delete the current bag is the current bag",
+                "add the empty bag is the current bag"
+            ]
+        },
+        {
+            "name": "B10",
+            "if": [
+                "step is bag-medium-items"
+            ],
+            "then": [
+                "delete step is bag-medium-items",
+                "add step is bag-small-items"
+            ]
+        },
+        {
+            "name": "B11",
+            "if": [
+                "step is bag-small-items",
+                "a small item is to be bagged",
+                "the current bag contains no loarge items",
+                "the current bag contains no medium items",
+                "the bag contains ?x small items",
+                "18 > ?x"
+            ],
+            "then": [
+                "delete the small item is to be bagged",
+                "add the small item is in the current bag"
+            ]
+        },
+        {
+            "name": "B12",
+            "if": [
+                "step is bag-small-items",
+                "a small item is to be bagged",
+                "an empty bag is available"
+            ],
+            "then": [
+                "delete the current bag is the current bag",
+                "add the empty bag is current bag"
+            ]
+        },
+        {
+            "name": "B13",
+            "if": [
+                "step is bag-small-items"
+            ],
+            "then": [
+                "delete step is bag-small-items",
+                "add step is done"
+            ]
+        }
+    ]
+}

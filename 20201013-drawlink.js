@@ -6,7 +6,7 @@ let W = 700;
 let H = 600;
 
 // ループの本数
-let n = 3;
+let n = 4;
 
 // ループの縦の長さ
 let LM = 1.5 * H / 2.5;
@@ -40,7 +40,10 @@ function newMatrix(m, n) {
     return a;
 }
 
-let label = ["(a,1)", "(a,2)", "(a,3)", "(a,4)", "(a,5)", "(a,6)", "(a,7)", "(a,8)"];
+let labels = ["(a,1)", "(a,2)", "(a,3)", "(a,4)", "(a,5)", "(a,6)", "(a,7)", "(a,8)"];
+let colors = ["black", "red", "blue", "brown", "red", "blue", "black", "red", "blue", "black", "red", "blue"];
+
+let BG_COLOR = "white";
 
 let A = newMatrix(n, n);
 let B = newMatrix(n, n);
@@ -90,8 +93,8 @@ function loop(topLeftX, topLeftY, width, height, lWidth, aColor, isDash) {
     }
     return "<rect x=\"" + topLeftX + "\" y=\"" + topLeftY + "\" width=\"" + width + "\" height=\"" + height + "\" style=\"fill: none; stroke: " + aColor + "; stroke-width: " + lWidth + ";" + dashStr + "\"/>";
 }
-function fill(topLeftX, topLeftY, width, height) {
-    return "<rect x=\"" + topLeftX + "\" y=\"" + topLeftY + "\" width=\"" + width + "\" height=\"" + height + "\" style=\"fill: white; \"/>";
+function fill(topLeftX, topLeftY, width, height, aColor) {
+    return "<rect x=\"" + topLeftX + "\" y=\"" + topLeftY + "\" width=\"" + width + "\" height=\"" + height + "\" style=\"fill: " + aColor + "; \"/>";
 }
 
 function drawBlock(topLeftX, topLeftY, width, height, r) {
@@ -101,7 +104,7 @@ function drawBlock(topLeftX, topLeftY, width, height, r) {
 let strSVG = "";
 strSVG += begin();
 
-strSVG += fill(0, 0, W, H);
+strSVG += fill(0, 0, W, H, BG_COLOR);
 
 strSVG += drawBlock(LEFT / 3, TOP + LM - deltaLM, 2 * LEFT / 3 + deltaLN * n, deltaLM * n + 2 * BOTTOM / 3, 10);
 strSVG += drawBlock(LEFT + LN - deltaLN, TOP / 3, deltaLN * n + 2 * RIGHT / 3, deltaLM * n + 2 * TOP / 3, 10);
@@ -109,7 +112,7 @@ strSVG += drawBlock(LEFT + LN - deltaLN, TOP / 3, deltaLN * n + 2 * RIGHT / 3, d
 for (let i = 0; i < n; i++) {
     let fx = LEFT + i * deltaLN;
     let fy = TOP + i * deltaLM;
-    let strColor = "black";
+    let strColor = colors[i];
     strSVG += loop(fx, fy, LN, LM, LINE_WIDTH, strColor, false);
 }
 
@@ -118,28 +121,50 @@ for (let i = 0; i < n; i++) {
         let fx = LEFT + j * deltaLN;
         let fy = TOP + LM + i * deltaLM;
 
+        let colorOnCross = "black";
+
         // (fx, fy) は左下のブロックにおける i,j に対応するループの交点
         if (A[i][j] >= 1) {
-            strSVG += fill(fx - deltaLN / 2, fy - LINE_WIDTH, deltaLN, LINE_WIDTH / 2);
-            strSVG += fill(fx - deltaLN / 2, fy + LINE_WIDTH / 2, deltaLN, LINE_WIDTH / 2);
+            strSVG += fill(fx - deltaLN / 2, fy - LINE_WIDTH, deltaLN, LINE_WIDTH / 2, BG_COLOR);
+            strSVG += fill(fx - deltaLN / 2, fy + LINE_WIDTH / 2, deltaLN, LINE_WIDTH / 2, BG_COLOR);
+
+            // 交点を上のループの色にする
+            colorOnCross = colors[i];
+            // 薄い線が残るのでそれを消すため
+            strSVG += fill(fx - deltaLN / 2, fy - LINE_WIDTH / 2, deltaLN, LINE_WIDTH, colorOnCross);
         }
         else {
-            strSVG += fill(fx - LINE_WIDTH, fy - deltaLM / 2, LINE_WIDTH / 2, deltaLM);
-            strSVG += fill(fx + LINE_WIDTH / 2, fy - deltaLM / 2, LINE_WIDTH / 2, deltaLM);
+            strSVG += fill(fx - LINE_WIDTH, fy - deltaLM / 2, LINE_WIDTH / 2, deltaLM, BG_COLOR);
+            strSVG += fill(fx + LINE_WIDTH / 2, fy - deltaLM / 2, LINE_WIDTH / 2, deltaLM, BG_COLOR);
+
+            // 交点を上のループの色にする
+            colorOnCross = colors[j];
+            // 薄い線が残るのでそれを消すため
+            strSVG += fill(fx - LINE_WIDTH / 2, fy - deltaLM / 2, LINE_WIDTH, deltaLM, colorOnCross);
         }
+
 
         // (fx, fy) は右上のブロックにおける i,j に対応するループの交点
         fx = LEFT + LN + i * deltaLN;
         fy = TOP + j * deltaLM;
         if (B[i][j] >= 1) {
-            strSVG += fill(fx - LINE_WIDTH, fy - deltaLM / 2, LINE_WIDTH / 2, deltaLM);
-            strSVG += fill(fx + LINE_WIDTH / 2, fy - deltaLM / 2, LINE_WIDTH / 2, deltaLM);
+            strSVG += fill(fx - LINE_WIDTH, fy - deltaLM / 2, LINE_WIDTH / 2, deltaLM, BG_COLOR);
+            strSVG += fill(fx + LINE_WIDTH / 2, fy - deltaLM / 2, LINE_WIDTH / 2, deltaLM, BG_COLOR);
+
+            // 交点を上のループの色にする
+            colorOnCross = colors[i];
+            // 薄い線が残るのでそれを消すため
+            strSVG += fill(fx - LINE_WIDTH / 2, fy - deltaLM / 2, LINE_WIDTH, deltaLM, colorOnCross);
         }
         else {
-            strSVG += fill(fx - deltaLN / 2, fy - LINE_WIDTH, deltaLN, LINE_WIDTH / 2);
-            strSVG += fill(fx - deltaLN / 2, fy + LINE_WIDTH / 2, deltaLN, LINE_WIDTH / 2);
-        }
+            strSVG += fill(fx - deltaLN / 2, fy - LINE_WIDTH, deltaLN, LINE_WIDTH / 2, BG_COLOR);
+            strSVG += fill(fx - deltaLN / 2, fy + LINE_WIDTH / 2, deltaLN, LINE_WIDTH / 2, BG_COLOR);
 
+            // 交点を上のループの色にする
+            colorOnCross = colors[j];
+            // 薄い線が残るのでそれを消すため
+            strSVG += fill(fx - deltaLN / 2, fy - LINE_WIDTH / 2, deltaLN, LINE_WIDTH, colorOnCross);
+        }
     }
 }
 
@@ -147,7 +172,7 @@ for (let i = 0; i < n; i++) {
     let fx = LEFT + i * deltaLN - LINE_WIDTH / 2;
     let fy = TOP + i * deltaLM - 2 * LINE_WIDTH / 3;
     strSVG += "<g style=\"fong-size: 14pt;\"/>";
-    strSVG += "<text x=\"" + fx + "\" y=\"" + fy + "\" style=\"font-family: Times New Roman; font-size: " + (deltaLM - LINE_WIDTH) + "; stroke:none; fill:black;\">" + label[i] + "</text>";
+    strSVG += "<text x=\"" + fx + "\" y=\"" + fy + "\" style=\"font-family: Times New Roman; font-size: " + (deltaLM - LINE_WIDTH) + "; stroke:none; fill:black;\">" + labels[i] + "</text>";
 }
 
 strSVG += end();

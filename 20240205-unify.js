@@ -793,6 +793,19 @@ failG1: {a: {b: "test"}},
 failG2: {a: {atom:"ex"}},
 
 //example reentrancy
+rr0:{a: {tag:"X", def:{atom: "1"}},
+     b: {ref:"X"},
+     c: {atom:"1"}},
+rr1:{a: "1",
+     b: {ref:"Y"},
+     c: {tag:"Y", def:"1"}},
+rru:{a: {tag:"Z", def:{atom:"1"}},
+     b: {ref:"Z"},
+     c: {ref:"Z"}},
+rrg:{a: "1",
+     b: {atom: "1"},
+     c: "1"},
+
 rc10: {a: {tag:"a1", def:{atom:"1"}},
        b: {atom:"2"},
        c: {ref:"a1"}},
@@ -999,10 +1012,12 @@ p115dg3: {DTRS: {DTR2: {tag:"X03", def:{SYN: {SUBCAT: {REST:  {tag:"X06", def:{v
 last: "INCONSISTENCY"
 };
 
+/*
 for(let key in sampleObjects) {
     console.log(key);
     console.log(nodeStr(sampleObjects[key]));
 }
+*/
 
 let tests = [
     assertEqualObject(sampleObjects["primA00"], sampleObjects["primA01"]),
@@ -1013,6 +1028,8 @@ let tests = [
     assertEqualObject(sampleObjects["eqG3"],    sampleObjects["eqG3Copy"]),
     assertEqualObject(sampleObjects["eqG4"],    sampleObjects["eqG4Copy"]),
     assertEqualObject(sampleObjects["eqG5"],    sampleObjects["eqG5Copy"]),
+    assertUnifyObject("reentrancy", sampleObjects["rr0"], sampleObjects["rr1"], sampleObjects["rru"]),
+    assertGeneralizeObject("reentrancy", sampleObjects["rr0"], sampleObjects["rr1"], sampleObjects["rrg"]),
     assertUnifyObject("minimal cycle", sampleObjects["mc1"], sampleObjects["mc2"], sampleObjects["mcu"]),
     assertGeneralizeObject("minimal cycle", sampleObjects["mc1"], sampleObjects["mc2"], sampleObjects["mcg"]),
     assertGeneralizeObject("p.26", sampleObjects["p26dg1"], sampleObjects["p26dg2"], sampleObjects["p26dg2"]),
@@ -1034,7 +1051,7 @@ let tests = [
     true];
 
 console.log("All tests are right?");
-//console.log(tests.every((t)=>{return t}));
+console.log(tests.every((t)=>{return t}));
 
 /*
 for(let key in sampleObjects) {
@@ -1042,3 +1059,4 @@ for(let key in sampleObjects) {
     console.log(o2sSetf(key, o));
 }
 */
+
